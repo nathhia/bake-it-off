@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.Normalizer
 
 // Representa os estados da tela durante o processo
 sealed interface RecipeUiState {
@@ -192,18 +191,6 @@ class RecipeViewModel(
         }
     }
 
-    private fun String.prepararParaBusca(): String {
-        // 1. Remove os acentos
-        val normalizada = Normalizer.normalize(this, Normalizer.Form.NFD)
-        val semAcento = normalizada.replace("\\p{Mn}+".toRegex(), "")
-
-        // 2. Substitui hifens por espaços em branco
-        val semHifen = semAcento.replace("-", " ")
-
-        // 3. Remove espaços duplos que possam ter sobrado e limpa as bordas
-        return semHifen.replace("\\s+".toRegex(), " ").trim()
-    }
-
     val todosOsStatus: StateFlow<List<String>> = _receitasSalvas.map { lista ->
         lista.mapNotNull { it.status } // Remove nulos
             .filter { it.isNotBlank() } // Remove strings vazias
@@ -223,28 +210,7 @@ class RecipeViewModel(
         _isFavoriteFilter,
         _statusSelecionado
     ) { receitas, query, tags, isFavoriteOnly, status ->
-
-        val queryLimpa = query.prepararParaBusca().lowercase()
-        val termosBuscados = if (queryLimpa.isBlank()) emptyList() else queryLimpa.split(" ")
-
-        receitas.filter { receita ->
-            val matchBusca = if (termosBuscados.isEmpty()) {
-                true
-            } else {
-                val tituloPronto = receita.titulo.prepararParaBusca().lowercase()
-                val tagsProntas = receita.tags.map { it.prepararParaBusca().lowercase() }
-
-                termosBuscados.all { termo ->
-                    tituloPronto.contains(termo) || tagsProntas.any { tagPronta -> tagPronta.contains(termo) }
-                }
-            }
-
-            val matchTags = tags.all { tag -> receita.tags.contains(tag) }
-            val matchFav = !isFavoriteOnly || receita.favorito
-            val matchStatus = status == null || receita.status == status
-
-            matchBusca && matchTags && matchFav && matchStatus
-        }
+        RecipeFilter.apply(receitas, query, tags, isFavoriteOnly, status)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
