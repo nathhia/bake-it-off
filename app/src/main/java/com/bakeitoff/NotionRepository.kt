@@ -1,11 +1,6 @@
 package com.bakeitoff
 
-import DicasComentario
-import Ingrediente
-import Receita
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -15,14 +10,6 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-
-// Representa o JSON que o Gemini nos devolveu
-data class GeminiRecipeJson(
-    val titulo: String,
-    val ingredientes: List<String>,
-    val modo_preparo: List<String>,
-    val tags: List<String>
-)
 
 class NotionRepository(private val integrationToken: String, private val databaseId: String) {
 
@@ -49,20 +36,11 @@ class NotionRepository(private val integrationToken: String, private val databas
 
     // Recebe diretamente a sua classe Receita que já vem bonitinha do Gemini
     suspend fun saveRecipe(receita: Receita, linkOrigem: String?): Boolean {
-        return try {
+        try {
 
             // ==========================================
             // PARTE 1: Preparando textos para as Colunas (Propriedades)
             // ==========================================
-//            val ingredientesString = receita.ingredientes
-//                .groupBy { it.secao }
-//                .entries.joinToString("\n\n") { (secao, listaDeIngredientes) ->
-//                    val tituloSecao = if (!secao.isNullOrEmpty()) "**$secao:**\n" else ""
-//                    val itens = listaDeIngredientes.joinToString("\n") { ing ->
-//                        "• ${ing.quantidade} ${ing.unidade} de ${ing.item}"
-//                    }
-//                    tituloSecao + itens
-//                }
             val ingredientesString = receita.ingredientes
                 .groupBy { it.secao }
                 .entries.joinToString("\n\n") { (secao, listaDeIngredientes) ->
@@ -73,8 +51,10 @@ class NotionRepository(private val integrationToken: String, private val databas
                         val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
                             ing.item
                         } else {
-                            val q = ing.quantidade?.trim() ?: ""
-                            val u = ing.unidade?.trim() ?: ""
+                            // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
+                            // e pode deixar isso null quando a IA não especifica quantidade/unidade.
+                            val q = (ing.quantidade as String?)?.trim() ?: ""
+                            val u = (ing.unidade as String?)?.trim() ?: ""
                             val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
 
                             "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
@@ -107,7 +87,9 @@ class NotionRepository(private val integrationToken: String, private val databas
                 preparo = NotionRichText(fatiarParaNotion(passosString)),
                 tags = NotionMultiSelect(receita.tags.map { SelectOption(it) }),
                 favorito = NotionCheckbox(receita.favorito), // Preserva estado atual
-                status = NotionStatus(StatusOption(receita.status ?: "Não feito")), // Preserva estado atual
+                // Cast pra nullable de propósito: a IA nunca inclui "Status" no JSON extraído,
+                // e o Gson ignora o valor padrão do Kotlin, deixando status null nesse ponto.
+                status = NotionStatus(StatusOption((receita.status as String?) ?: "Não feito")), // Preserva estado atual
                 link = if (!linkFinal.isNullOrBlank()) NotionUrl(linkFinal) else null,
                 dicas = NotionRichText(fatiarParaNotion(dicasString))
             )
@@ -120,40 +102,6 @@ class NotionRepository(private val integrationToken: String, private val databas
                 val pageBlocks = mutableListOf<NotionBlock>()
 
                 pageBlocks.add(Heading2Block(NotionRichText(listOf(TextObject(TextContent("Ingredientes"))))))
-
-//                val ingredientesAgrupados = receita.ingredientes.groupBy { it.secao }
-//                ingredientesAgrupados.forEach { (secao, lista) ->
-//                    if (!secao.isNullOrEmpty()) {
-//                        pageBlocks.add(
-//                            Heading3Block(
-//                                NotionRichText(
-//                                    listOf(
-//                                        TextObject(
-//                                            TextContent(
-//                                                secao
-//                                            )
-//                                        )
-//                                    )
-//                                )
-//                            )
-//                        )
-//                    }
-//                    lista.forEach { ing ->
-//                        //val textoIngrediente = "${ing.quantidade} ${ing.unidade} de ${ing.item}"
-//                        val textoIngrediente = ing.item
-//                        pageBlocks.add(
-//                            BulletedListBlock(
-//                                NotionRichText(
-//                                    listOf(
-//                                        TextObject(
-//                                            TextContent(textoIngrediente)
-//                                        )
-//                                    )
-//                                )
-//                            )
-//                        )
-//                    }
-//                }
 
                 val ingredientesAgrupados = receita.ingredientes.groupBy { it.secao }
                 ingredientesAgrupados.forEach { (secao, lista) ->
@@ -176,8 +124,10 @@ class NotionRepository(private val integrationToken: String, private val databas
                         val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
                             ing.item
                         } else {
-                            val q = ing.quantidade?.trim() ?: ""
-                            val u = ing.unidade?.trim() ?: ""
+                            // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
+                            // e pode deixar isso null quando a IA não especifica quantidade/unidade.
+                            val q = (ing.quantidade as String?)?.trim() ?: ""
+                            val u = (ing.unidade as String?)?.trim() ?: ""
                             val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
                             "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
                         }
@@ -265,7 +215,7 @@ class NotionRepository(private val integrationToken: String, private val databas
                 val response = api.updateFullPage(
                     token = "Bearer $integrationToken",
                     version = "2022-06-28",
-                    pageId = receita.id!!,
+                    pageId = receita.id,
                     request = request
                 )
 
@@ -382,14 +332,16 @@ class NotionRepository(private val integrationToken: String, private val databas
                 } else {
                     Log.e("BakeItOffDebug", "Erro ao buscar do Notion: ${response.errorBody()?.string()}")
                     temMaisPaginas = false
+                    // Emite o que já foi buscado (ou vazio, se falhou na 1ª página) pra não
+                    // deixar quem está coletando esse Flow esperando pra sempre por um valor.
+                    emit(todasReceitas.toList())
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // Retorna o que foi possível salvar antes do erro, ou uma lista vazia se falhou de primeira
-            if (todasReceitas.isNotEmpty()) {
-                emit(todasReceitas.toList())
-            }
+            // Retorna o que foi possível buscar antes do erro, ou uma lista vazia se falhou de primeira —
+            // sempre emite pra não deixar quem está coletando esse Flow esperando pra sempre por um valor.
+            emit(todasReceitas.toList())
         }
     }.flowOn(Dispatchers.IO)
 
