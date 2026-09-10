@@ -1,6 +1,9 @@
-package com.bakeitoff
+package com.bakeitoff.viewmodel
 
 import android.util.Log
+import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.Ingrediente
+import com.bakeitoff.data.model.Receita
 import com.google.gson.Gson
 
 sealed interface RecipeParseResult {

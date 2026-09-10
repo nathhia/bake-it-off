@@ -1,6 +1,6 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.Receita
+import com.bakeitoff.data.model.Receita
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.bakeitoff.RecipeViewModel
+import com.bakeitoff.viewmodel.RecipeViewModel
 
 val lightPink = Color(0xFFF5CFE4)
 val lightPurple = Color(0xFFD6DCF2)

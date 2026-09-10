@@ -1,6 +1,9 @@
-package com.bakeitoff
+package com.bakeitoff.data.notion
 
 import android.util.Log
+import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.Ingrediente
+import com.bakeitoff.data.model.Receita
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

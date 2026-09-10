@@ -1,5 +1,6 @@
-package com.bakeitoff
+package com.bakeitoff.viewmodel
 
+import com.bakeitoff.data.model.Receita
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

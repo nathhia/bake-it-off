@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.data.gemini
 
 import android.content.Context
 import android.net.Uri

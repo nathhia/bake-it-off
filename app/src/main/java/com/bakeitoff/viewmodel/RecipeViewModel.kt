@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.viewmodel
 
 import android.content.Context
 import android.net.Uri
@@ -7,6 +7,15 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bakeitoff.data.gemini.ApiKeyManager
+import com.bakeitoff.data.gemini.ExtractionOutcome
+import com.bakeitoff.data.gemini.ExtractionPhase
+import com.bakeitoff.data.gemini.MediaPreparer
+import com.bakeitoff.data.gemini.MediaPreparationException
+import com.bakeitoff.data.gemini.PreparedMedia
+import com.bakeitoff.data.gemini.RecipeExtractionRepository
+import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.notion.NotionRepository
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow

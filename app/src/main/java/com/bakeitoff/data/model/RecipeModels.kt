@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.data.model
 
 import com.google.gson.annotations.SerializedName
 

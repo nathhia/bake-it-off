@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.data.notion
 
 import com.google.gson.annotations.SerializedName
 

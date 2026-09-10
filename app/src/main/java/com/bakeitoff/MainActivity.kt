@@ -12,8 +12,14 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.bakeitoff.data.gemini.GeminiFileUploader
+import com.bakeitoff.data.gemini.MediaPreparer
+import com.bakeitoff.data.gemini.RecipeExtractionRepository
+import com.bakeitoff.data.gemini.RecipeExtractor
+import com.bakeitoff.data.notion.NotionRepository
 import com.bakeitoff.ui.screens.RecipeScreen
 import com.bakeitoff.ui.theme.BakeItOffTheme
+import com.bakeitoff.viewmodel.RecipeViewModel
 
 class MainActivity : ComponentActivity() {
 

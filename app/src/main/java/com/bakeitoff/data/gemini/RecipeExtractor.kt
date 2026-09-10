@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.data.gemini
 
 import android.graphics.Bitmap
 import android.util.Log

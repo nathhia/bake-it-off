@@ -1,4 +1,4 @@
-package com.bakeitoff
+package com.bakeitoff.data.notion
 
 import retrofit2.Response
 import retrofit2.http.Body

@@ -1,8 +1,8 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.DicasComentario
-import com.bakeitoff.Receita
-import com.bakeitoff.Ingrediente
+import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Ingrediente
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi

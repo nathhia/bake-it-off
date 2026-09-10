@@ -1,8 +1,8 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.DicasComentario
-import com.bakeitoff.Ingrediente
-import com.bakeitoff.Receita
+import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.Ingrediente
+import com.bakeitoff.data.model.Receita
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -42,7 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bakeitoff.RecipeViewModel
+import com.bakeitoff.viewmodel.RecipeViewModel
 import kotlinx.coroutines.launch
 
 // ==========================================

@@ -1,7 +1,7 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.DicasComentario
-import com.bakeitoff.Receita
+import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.Receita
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -69,13 +69,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
-import com.bakeitoff.RecipeUiState
-import com.bakeitoff.RecipeViewModel
+import com.bakeitoff.viewmodel.RecipeUiState
+import com.bakeitoff.viewmodel.RecipeViewModel
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bakeitoff.ApiKeyManager
+import com.bakeitoff.data.gemini.ApiKeyManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

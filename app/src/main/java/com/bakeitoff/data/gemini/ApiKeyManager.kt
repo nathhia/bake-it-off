@@ -1,5 +1,6 @@
-package com.bakeitoff
+package com.bakeitoff.data.gemini
 
+import com.bakeitoff.BuildConfig
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 

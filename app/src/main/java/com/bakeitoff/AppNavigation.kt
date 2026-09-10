@@ -7,6 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.bakeitoff.ui.screens.RecipeDetailScreen
 import com.bakeitoff.ui.screens.RecipeListScreen
 import com.bakeitoff.ui.screens.RecipeScreen
+import com.bakeitoff.viewmodel.RecipeViewModel
 
 @Composable
 fun BakeItOffApp(viewModel: RecipeViewModel) {
