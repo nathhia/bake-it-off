@@ -4,7 +4,13 @@ import com.bakeitoff.BuildConfig
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-object ApiKeyManager{
+/**
+ * Gira entre as chaves de API do Gemini de cada colaborador quando uma bate
+ * cota (429). Uma instância por app (injetada via MainActivity) em vez de
+ * singleton global, pra dar pra testar código que depende dela com uma
+ * instância isolada em vez de estado global compartilhado entre testes.
+ */
+class ApiKeyManager {
     private val api_key_nathaff = BuildConfig.GEMINI_API_KEY_NATHAFF
     private val api_key_nathhia = BuildConfig.GEMINI_API_KEY_NATHHIA
     private val api_key_anderson = BuildConfig.GEMINI_API_KEY_ANDERSON

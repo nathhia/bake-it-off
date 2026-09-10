@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.bakeitoff.data.gemini.ApiKeyManager
 import com.bakeitoff.data.gemini.GeminiFileUploader
 import com.bakeitoff.data.gemini.MediaPreparer
 import com.bakeitoff.data.gemini.RecipeExtractionRepository
@@ -30,13 +31,14 @@ class MainActivity : ComponentActivity() {
                 val notionToken = BuildConfig.NOTION_TOKEN
                 val notionDatabaseId = BuildConfig.NOTION_DATABASE_ID
 
-                val uploader = GeminiFileUploader(applicationContext)
-                val extractor = RecipeExtractor()
-                val extractionRepository = RecipeExtractionRepository(uploader, extractor)
+                val apiKeyManager = ApiKeyManager()
+                val uploader = GeminiFileUploader(applicationContext, apiKeyManager)
+                val extractor = RecipeExtractor(apiKeyManager)
+                val extractionRepository = RecipeExtractionRepository(uploader, extractor, apiKeyManager)
                 val mediaPreparer = MediaPreparer()
                 val notionRepo = NotionRepository(notionToken, notionDatabaseId)
 
-                return RecipeViewModel(mediaPreparer, extractionRepository, notionRepo) as T
+                return RecipeViewModel(mediaPreparer, extractionRepository, notionRepo, apiKeyManager) as T
             }
         }
     }

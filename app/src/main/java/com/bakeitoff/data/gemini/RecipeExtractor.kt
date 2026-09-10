@@ -12,12 +12,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.minutes
 
-class RecipeExtractor() {
+class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
 
     private val generativeModel: GenerativeModel
         get() = GenerativeModel(
         modelName = "gemini-3.5-flash",
-        apiKey = ApiKeyManager.getApiKey(),
+        apiKey = apiKeyManager.getApiKey(),
         generationConfig = generationConfig {
             temperature = 0.2f
             responseMimeType = "application/json"
@@ -152,7 +152,7 @@ class RecipeExtractor() {
 
                         val tempoEspera = (quotaAttempts * 2000L)
                         Log.w("BakeItOffDebug", "Cota atingida! Rotacionando chave de API instantaneamente...")
-                        ApiKeyManager.toggleKey() // Troca a chave sem congelar o app por 15s
+                        apiKeyManager.toggleKey() // Troca a chave sem congelar o app por 15s
                         delay(tempoEspera)
 
                         if (videoUri != null) {
@@ -222,7 +222,7 @@ class RecipeExtractor() {
                         }
                         val tempoEspera = (quotaAttempts * 2000L)
                         Log.w("BakeItOffDebug", "Cota atingida no texto! Alternando API Key...")
-                        ApiKeyManager.toggleKey()
+                        apiKeyManager.toggleKey()
                         delay(tempoEspera)
                     }
 

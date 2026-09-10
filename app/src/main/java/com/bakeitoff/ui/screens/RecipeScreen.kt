@@ -75,7 +75,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.bakeitoff.data.gemini.ApiKeyManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,7 +155,8 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                     onTextOnlySubmit = { texto ->
                         viewModel.criarReceitaPorTexto(texto)
                     },
-                    onNavigateToList = onNavigateToList
+                    onNavigateToList = onNavigateToList,
+                    onLogoLongPress = { viewModel.toggleApiKey() }
                 )
             }
         }
@@ -396,7 +396,8 @@ fun InitialScreen(
     onUrisChange: (List<String>) -> Unit,
     onMediaSelected: (List<Uri>, String?, String?) -> Unit,
     onTextOnlySubmit: (String) -> Unit,
-    onNavigateToList: () -> Unit
+    onNavigateToList: () -> Unit,
+    onLogoLongPress: () -> Unit
 ) {
     val selectedUris = savedUrisStrings.map { Uri.parse(it) }
 
@@ -424,11 +425,7 @@ fun InitialScreen(
 
         // 1. Cabeçalho Visual (Componentizado)
         item {
-            HeaderSection(
-                onLogoLongPress = {
-                    ApiKeyManager.toggleKey()
-                }
-            )
+            HeaderSection(onLogoLongPress = onLogoLongPress)
         }
 
         // 2. Seção de Anexo de Mídia (Componentizado)

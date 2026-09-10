@@ -17,7 +17,8 @@ sealed interface ExtractionOutcome {
 
 class RecipeExtractionRepository(
     private val uploader: GeminiFileUploader,
-    private val extractor: RecipeExtractor
+    private val extractor: RecipeExtractor,
+    private val apiKeyManager: ApiKeyManager
 ) {
 
     suspend fun extractFromUrl(url: String): String? = extractor.extractFromUrl(url)
@@ -30,7 +31,7 @@ class RecipeExtractionRepository(
         prompt: String,
         onPhaseChange: suspend (ExtractionPhase) -> Unit
     ): ExtractionOutcome {
-        val maxPipelineAttempts = ApiKeyManager.sizeKeys
+        val maxPipelineAttempts = apiKeyManager.sizeKeys
         var pipelineAttempts = 0
 
         while (pipelineAttempts < maxPipelineAttempts) {

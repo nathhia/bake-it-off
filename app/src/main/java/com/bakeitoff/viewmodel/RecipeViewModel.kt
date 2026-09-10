@@ -42,7 +42,8 @@ sealed interface RecipeUiState {
 class RecipeViewModel(
     private val mediaPreparer: MediaPreparer,
     private val extractionRepository: RecipeExtractionRepository,
-    private val notionRepository: NotionRepository
+    private val notionRepository: NotionRepository,
+    private val apiKeyManager: ApiKeyManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RecipeUiState>(RecipeUiState.Initial)
@@ -243,12 +244,18 @@ class RecipeViewModel(
     val uiEvent = _uiEvent.asSharedFlow()
 
     init {
-        // Escuta globalmente as trocas de chave do ApiKeyManager
+        // Escuta as trocas de chave do ApiKeyManager
         viewModelScope.launch {
-            ApiKeyManager.onKeyChanged.collect { novoNome ->
+            apiKeyManager.onKeyChanged.collect { novoNome ->
                 _uiEvent.emit("Chave trocada para: $novoNome 🔄")
             }
         }
+    }
+
+    // A UI (long-press no logo) chama isso em vez de tocar no ApiKeyManager direto,
+    // já que ele não é mais um singleton acessível de qualquer lugar.
+    fun toggleApiKey() {
+        apiKeyManager.toggleKey()
     }
 
     // Suspend e retorna o resultado: quem chama decide o que fazer na tela

@@ -17,7 +17,10 @@ import okio.use
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class GeminiFileUploader(private val context: Context) {
+class GeminiFileUploader(
+    private val context: Context,
+    private val apiKeyManager: ApiKeyManager
+) {
 
     // Aumentamos o timeout porque uploads de vídeo levam mais tempo que requisições de texto
     private val client = OkHttpClient.Builder()
@@ -28,7 +31,7 @@ class GeminiFileUploader(private val context: Context) {
 
     suspend fun isVideoReady(fileUri: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val currentKey = ApiKeyManager.getApiKey()
+            val currentKey = apiKeyManager.getApiKey()
             // Faz uma chamada GET simples, que não consome cota de geração de texto
             val request = Request.Builder()
                 .url("$fileUri?key=$currentKey")
@@ -61,7 +64,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
     while (attempts < maxAttempts && coroutineContext.isActive) {
         try {
             // 1. Pega a chave DENTRO do loop, garantindo que ela se atualize após um erro
-            val currentKey = ApiKeyManager.getApiKey()
+            val currentKey = apiKeyManager.getApiKey()
             val contentResolver = context.contentResolver
             val mimeType = contentResolver.getType(videoUri) ?: "video/mp4"
 
@@ -81,7 +84,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
                 .addHeader("X-Goog-Upload-Protocol", "raw")
                 .build()
 
-            Log.d("BakeItOffDebug", "Iniciando upload (Tentativa ${attempts + 1}/$maxAttempts) com a chave: ${ApiKeyManager.getActiveKeyName()}")
+            Log.d("BakeItOffDebug", "Iniciando upload (Tentativa ${attempts + 1}/$maxAttempts) com a chave: ${apiKeyManager.getActiveKeyName()}")
 
             // 2. Executa a chamada
             client.newCall(request).execute().use { response ->
@@ -108,7 +111,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
                             }
                             val tempoEspera = (quotaAttempts * 2000L)
                             Log.w("BakeItOffDebug", "Cota estourada no Upload (429)! Trocando chave e tentando novamente...")
-                            ApiKeyManager.toggleKey() // Gira a chave globalmente
+                            apiKeyManager.toggleKey() // Gira a chave globalmente
                             delay(tempoEspera)
                         }
                         503 -> { // Servidor do Google sobrecarregado
