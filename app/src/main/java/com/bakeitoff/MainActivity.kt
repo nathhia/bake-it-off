@@ -1,7 +1,5 @@
 package com.bakeitoff
 
-import GeminiFileUploader
-import RecipeExtractor
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -28,9 +26,11 @@ class MainActivity : ComponentActivity() {
 
                 val uploader = GeminiFileUploader(applicationContext)
                 val extractor = RecipeExtractor()
+                val extractionRepository = RecipeExtractionRepository(uploader, extractor)
+                val mediaPreparer = MediaPreparer()
                 val notionRepo = NotionRepository(notionToken, notionDatabaseId)
 
-                return RecipeViewModel(uploader, extractor, notionRepo) as T
+                return RecipeViewModel(mediaPreparer, extractionRepository, notionRepo) as T
             }
         }
     }
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
 
             // Cenário 1: Compartilhamento de MÚLTIPLOS arquivos (Vídeo + Prints)
             if (action == Intent.ACTION_SEND_MULTIPLE) {
-                val uris = it.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+                val uris = it.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
 
                 uris?.forEach { uri ->
                     val mimeType = this.contentResolver.getType(uri) ?: ""
@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
 
                     viewModel.processMediaUris(
                         uris = todasAsUris,
-                        context = this,
+                        context = applicationContext,
                         linkTexto = null,
                         promptExtra = null
                     )
@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
             }
             // Cenário 2: Compartilhamento de UM ÚNICO item (Vídeo, Imagem ou Link)
             else if (action == Intent.ACTION_SEND) {
-                val uri = it.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                val uri = it.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
                     ?: it.clipData?.getItemAt(0)?.uri
 
                 if (uri != null) {
@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
 
                     viewModel.processMediaUris(
                         uris = todasAsUris,
-                        context = this,
+                        context = applicationContext,
                         linkTexto = null,
                         promptExtra = null
                     )
@@ -130,5 +130,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Consome o intent para evitar reprocessamento se a Activity for recriada
+        // depois (ex: rotação de tela), o que disparia o pipeline de novo do zero.
+        setIntent(Intent())
     }
 }
