@@ -1,16 +1,15 @@
+package com.bakeitoff
+
+import android.graphics.Bitmap
+import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.RequestOptions
 import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-
-
-import android.graphics.Bitmap
-import android.util.Log
-import com.bakeitoff.ApiKeyManager
-import com.google.ai.client.generativeai.type.RequestOptions
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.minutes
 
 class RecipeExtractor() {
@@ -248,158 +247,6 @@ class RecipeExtractor() {
         return@withContext null
     }
 
-//    suspend fun extractFromMultiMedia(
-//        videoUri: String? = null,
-//        images: List<Bitmap> = emptyList(),
-//        prompt: String = "Analise o conteúdo e extraia a receita em JSON."
-//    ): String? = withContext(Dispatchers.IO) {
-//
-//        var attempts = 0
-//        val maxAttempts = 15 // Tenta por até ~1 minuto e meio
-//
-//        var quotaAttempts = 0
-//        val maxQuotaAttempts = 7
-//
-//        while (attempts < maxAttempts) {
-//            try {
-//                // 1. Monta o conteúdo
-//                val inputContent = content {
-//                    if (videoUri != null) {
-//                        fileData(uri = videoUri, mimeType = "video/mp4")
-//                    }
-//                    images.forEach { image(it) }
-//                    text(prompt)
-//                }
-//
-//                // 2. Tenta gerar a resposta
-//                // Se o vídeo NÃO estiver pronto, esta linha lança um erro e cai no 'catch'
-//                val response = generativeModel.generateContent(inputContent)
-//
-//                Log.d("BakeItOffDebug", "Vídeo pronto! Extração concluída na tentativa ${attempts + 1}.")
-//                // 3. Se chegou aqui, o vídeo estava pronto e a IA respondeu! Sucesso!
-//                return@withContext response.text?.replace("```json", "")?.replace("```", "")?.trim()
-//
-//            } catch (e: Exception) {
-//                val errorMessage = e.message ?: ""
-//
-//                // Verifica se o erro foi causado pelo vídeo ainda estar em processamento
-//                if (errorMessage.contains("FAILED_PRECONDITION", ignoreCase = true) ||
-//                    errorMessage.contains("processing", ignoreCase = true)) {
-//                    Log.d("BakeItOffDebug", "Vídeo ainda processando. Tentativa $attempts de $maxAttempts. Aguardando...")
-//                    // O vídeo ainda não está pronto. Espera 5 segundos e tenta de novo.
-//                    delay(5000)
-//                    attempts++
-//                } else if (errorMessage.contains("Quota", ignoreCase = true) ||
-//                    errorMessage.contains("429")) {
-//
-//                    quotaAttempts++
-//                    if (quotaAttempts > maxQuotaAttempts) {
-//                        Log.e("BakeItOffDebug", "Limite de erros de cota excedido. Abortando.")
-//                        return@withContext null
-//                    }
-//
-//                    Log.d("BakeItOffDebug", "Cota da API atingida! Respiro de 15s...")
-//                    delay(15000)
-//
-//                } else if (errorMessage.contains("503") ||
-//                    errorMessage.contains("high demand", ignoreCase = true) ||
-//                    errorMessage.contains("MissingFieldException", ignoreCase = true)) {
-//
-//                    quotaAttempts++
-//                    if (quotaAttempts > maxQuotaAttempts) {
-//                        Log.e("BakeItOffDebug", "Servidor muito instável hoje. Abortando.")
-//                        return@withContext null
-//                    }
-//
-//                    Log.d("BakeItOffDebug", "Servidor do Google sobrecarregado (Erro 503). Dando um respiro de 15s...")
-//                    delay(15000)
-//
-//                } else {
-//                    e.printStackTrace()
-//                    return@withContext null
-//                }
-//            }
-//        }
-//
-//        // Se saiu do loop, é porque estourou o limite de tentativas
-//        return@withContext null
-//    }
-//
-//    suspend fun generateFromText(descricaoUsuario: String): String? = withContext(Dispatchers.IO) {
-//
-//        var attempts = 0
-//        val maxAttempts = 7 // Limite menor que o de mídia, já que não temos polling de arquivo
-//
-//        var quotaAttempts = 0
-//        val maxQuotaAttempts = 5
-//
-//        while (attempts < maxAttempts) {
-//            try {
-//                Log.d("BakeItOffDebug", "Geração por texto: Tentativa ${attempts + 1} de $maxAttempts...")
-//
-//                val prompt = """
-//                    O usuário descreveu: "$descricaoUsuario".
-//                    Crie uma receita completa e retorne estritamente o objeto JSON.
-//                """.trimIndent()
-//
-//                // Chama a IA (usando o generativeModel que agora se atualiza sozinho!)
-//                val response = generativeModel.generateContent(prompt)
-//
-//                Log.d("BakeItOffDebug", "Sucesso! Resposta de texto recebida na tentativa ${attempts + 1}.")
-//                return@withContext response.text?.replace("```json", "")?.replace("```", "")?.trim()
-//
-//            } catch (e: Exception) {
-//                val errorMessage = e.message ?: ""
-//                attempts++ // Incrementa a tentativa para não gerar loop infinito
-//
-//                if (errorMessage.contains("Quota", ignoreCase = true) ||
-//                    errorMessage.contains("429")) {
-//
-//                    quotaAttempts++
-//                    if (quotaAttempts > maxQuotaAttempts) {
-//                        Log.e("BakeItOffDebug", "Limite de erros de cota excedido no texto. Abortando.")
-//                        return@withContext null
-//                    }
-//
-//                    Log.d("BakeItOffDebug", "Cota da API atingida (429)! Dando um respiro de 15s...")
-//                    delay(15000)
-//
-//                } else if (errorMessage.contains("503") ||
-//                    errorMessage.contains("high demand", ignoreCase = true) ||
-//                    errorMessage.contains("MissingFieldException", ignoreCase = true)) {
-//
-//                    quotaAttempts++
-//                    if (quotaAttempts > maxQuotaAttempts) {
-//                        Log.e("BakeItOffDebug", "Servidor muito instável hoje (503). Abortando texto.")
-//                        return@withContext null
-//                    }
-//
-//                    Log.d("BakeItOffDebug", "Servidor do Google sobrecarregado (Erro 503). Respiro de 15s...")
-//                    delay(15000)
-//
-//                } else {
-//                    // Para qualquer outro erro (ex: sem internet, timeout fatal), encerra na hora
-//                    Log.e("BakeItOffDebug", "Erro fatal na geração de texto: $errorMessage")
-//                    e.printStackTrace()
-//                    return@withContext null
-//                }
-//            }
-//        }
-//
-//        Log.e("BakeItOffDebug", "Estourou o limite geral de tentativas para texto.")
-//        return@withContext null
-//    }
-
-}
-
-
-interface GenerativeFile {
-    val uri: String
-    val state: FileStateAdapter
-}
-
-interface FileStateAdapter {
-    val name: String
 }
 
 class KeyRotatedException : Exception("A chave foi rotacionada. Necessário re-upload silencioso.")

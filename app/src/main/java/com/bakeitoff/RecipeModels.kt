@@ -1,3 +1,5 @@
+package com.bakeitoff
+
 import com.google.gson.annotations.SerializedName
 
 data class Receita(

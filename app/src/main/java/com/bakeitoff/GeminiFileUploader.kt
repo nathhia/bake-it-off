@@ -1,8 +1,8 @@
+package com.bakeitoff
+
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import android.util.Log.println
-import com.bakeitoff.ApiKeyManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -25,53 +25,6 @@ class GeminiFileUploader(private val context: Context) {
         .writeTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
-
-//    suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
-//
-//        try {
-//            val currentKey = ApiKeyManager.getApiKey()
-//            val contentResolver = context.contentResolver
-//            val mimeType = contentResolver.getType(videoUri) ?: "video/mp4"
-//
-//            // Faz o streaming direto da Uri para a rede, linha por linha
-//            val requestBody = object : RequestBody() {
-//                override fun contentType() = mimeType.toMediaTypeOrNull()
-//
-//                override fun writeTo(sink: BufferedSink) {
-//                    contentResolver.openInputStream(videoUri)?.source()?.use { source ->
-//                        sink.writeAll(source)
-//                    }
-//                }
-//            }
-//
-//            val request = Request.Builder()
-//                .url("https://generativelanguage.googleapis.com/upload/v1beta/files?key=$currentKey")
-//                .post(requestBody)
-//                // Header exigido pela API do Gemini para upload direto
-//                .addHeader("X-Goog-Upload-Protocol", "raw")
-//                .build()
-//
-//            client.newCall(request).execute().use { response ->
-//                if (!response.isSuccessful) {
-//                    println("Erro no upload: ${response.code} - ${response.body?.string()}")
-//                    return@withContext null
-//                }
-//
-//                val responseBody = response.body?.string()
-//
-//                // O retorno é um JSON contendo os dados do arquivo. Extraímos apenas a "uri".
-//                if (responseBody != null) {
-//                    val jsonObject = JSONObject(responseBody)
-//                    val fileObject = jsonObject.getJSONObject("file")
-//                    return@withContext fileObject.getString("uri")
-//                }
-//            }
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//        }
-//
-//        return@withContext null
-//    }
 
     suspend fun isVideoReady(fileUri: String): Boolean = withContext(Dispatchers.IO) {
         try {
