@@ -1,6 +1,6 @@
 package com.bakeitoff.ui.screens
 
-import Receita
+import com.bakeitoff.Receita
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -42,7 +41,6 @@ val CardBackground = Color(0xFFF0F2F7)
 @Composable
 fun RecipeListScreen(
     viewModel: RecipeViewModel,
-    onBackClick: () -> Unit,
     onRecipeClick: (Receita) -> Unit
 ) {
     // ATENÇÃO AQUI: Agora escutamos a receitasExibidas (já filtrada) e não a receitasSalvas
@@ -88,7 +86,6 @@ fun RecipeListScreen(
         isLoading = isLoading,
         onSearchQueryChange = { viewModel.onSearchQueryChanged(it) },
         onTagSelect = { viewModel.onTagSelected(it) },
-        onBackClick = onBackClick,
         onRecipeClick = onRecipeClick,
         onFavoriteToggle = { viewModel.toggleFavoriteFilter() },
         isFavoriteFilter = isFavoriteFilter,
@@ -112,7 +109,6 @@ fun RecipeListContent(
     isLoading: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onTagSelect: (String) -> Unit,
-    onBackClick: () -> Unit,
     onRecipeClick: (Receita) -> Unit,
     onFavoriteToggle: () -> Unit,
     isFavoriteFilter: Boolean,
@@ -121,52 +117,12 @@ fun RecipeListContent(
     todosOsStatus: List<String>,
     onClearAllTags: () -> Unit
 ) {
-    Scaffold(
-//        topBar = {
-//            TopAppBar(
-//                title = { Text("Meu Caderno de Receitas") },
-//                navigationIcon = {
-//                    IconButton(onClick = onBackClick) {
-//                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
-//                    }
-//                },
-//                colors = TopAppBarDefaults.topAppBarColors(
-//                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-//                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                )
-//            )
-//        }
-    ) { paddingValues ->
+    Scaffold { paddingValues ->
         Column( // Mudamos o Box principal para Column para empilhar a busca e a lista
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // --- INDICADOR DE FILTRO ATIVO ---
-//            if (selectedTag != null || searchQuery.isNotBlank()) {
-//                Row(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(horizontal = 16.dp, vertical = 4.dp),
-//                    verticalAlignment = Alignment.CenterVertically,
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    Text(
-//                        text = "Filtrando por: ${selectedTag ?: "busca"}",
-//                        style = MaterialTheme.typography.labelMedium,
-//                        color = MaterialTheme.colorScheme.primary,
-//                        fontWeight = FontWeight.Bold
-//                    )
-//
-//                    // Botão de "Limpar tudo"
-//                    TextButton(onClick = {
-//                        onSearchQueryChange("") // Limpa a busca
-//                        onTagSelect("")          // Limpa a tag (você precisará ajustar o ViewModel para aceitar string vazia ou nulo)
-//                    }) {
-//                        Text("Limpar")
-//                    }
-//                }
-//            }
             // --- INDICADOR DE FILTRO ATIVO ---
             if (selectedTags.isNotEmpty() || searchQuery.isNotBlank()) {
                 Row(
@@ -261,7 +217,7 @@ fun RecipeListContent(
                     isLoading -> {
                         CircularProgressIndicator()
                     }
-                    receitas.isEmpty() && searchQuery.isBlank() && selectedTags == null -> {
+                    receitas.isEmpty() && searchQuery.isBlank() && selectedTags.isEmpty() -> {
                         Text(
                             text = "Nenhuma receita no seu Notion.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -279,7 +235,7 @@ fun RecipeListContent(
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(receitas) { receita ->
+                            items(receitas, key = { it.id ?: it.titulo }) { receita ->
                                 RecipeCard(
                                     receita = receita,
                                     onClick = { onRecipeClick(receita) },
@@ -455,7 +411,6 @@ fun RecipeListScreenPreview() {
             onSearchQueryChange = {},
             onTagSelect = {},
 
-            onBackClick = {},
             onRecipeClick = {},
             onFavoriteToggle = {},
             isFavoriteFilter = false,

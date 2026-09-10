@@ -22,7 +22,9 @@ fun BakeItOffApp(viewModel: RecipeViewModel) {
                 viewModel = viewModel,
                 // Passamos uma função que diz ao botão como ir para a lista
                 onNavigateToList = {
-                    navController.navigate("lista_receitas")
+                    navController.navigate("lista_receitas") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -31,7 +33,6 @@ fun BakeItOffApp(viewModel: RecipeViewModel) {
         composable("lista_receitas") {
             RecipeListScreen(
                 viewModel = viewModel,
-                onBackClick = { navController.popBackStack() },
                 onRecipeClick = { receitaSelecionada ->
                     // 1. Avisamos ao ViewModel qual receita foi clicada
                     viewModel.selecionarReceita(receitaSelecionada)

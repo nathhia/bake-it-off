@@ -1,8 +1,8 @@
 package com.bakeitoff.ui.screens
 
-import DicasComentario
-import Ingrediente
-import Receita
+import com.bakeitoff.DicasComentario
+import com.bakeitoff.Ingrediente
+import com.bakeitoff.Receita
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -22,10 +22,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bakeitoff.RecipeViewModel
+import kotlinx.coroutines.launch
 
 // ==========================================
 // 1. O "Gerente" (Stateful)
@@ -51,14 +54,25 @@ fun RecipeDetailScreen(
     onBackClick: () -> Unit
 ) {
     val receita by viewModel.receitaSelecionada.collectAsState()
+    val isSaving by viewModel.isSavingToNotion
+    val coroutineScope = rememberCoroutineScope()
+
+    // Roda só quando a tela aparece (não a cada mudança de receita, senão duplicaria
+    // o onBackClick() já disparado pelo BackHandler/exclusão ao zerar a seleção).
+    // Se a receita já chegar nula aqui (ex: restauração de processo), volta para a tela
+    // anterior em vez de deixar a tela em branco sem saída.
+    LaunchedEffect(Unit) {
+        if (receita == null) {
+            onBackClick()
+        }
+    }
 
     var isEditing by remember { mutableStateOf(false) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isDeleting by remember { mutableStateOf(false) }
 
-    // Se por algum motivo a receita for nula, volta para a tela anterior
     if (receita == null) {
-        //onBackClick()
         return
     }
 
@@ -73,22 +87,37 @@ fun RecipeDetailScreen(
 
     if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
             title = { Text("Deletar Receita") },
             text = { Text("Tem certeza que deseja apagar '${receita?.titulo}'? Essa ação enviará a receita para a lixeira do seu Notion.") },
             confirmButton = {
                 TextButton(
+                    enabled = !isDeleting,
                     onClick = {
-                        showDeleteDialog = false
-                        viewModel.deletarReceita(receita!!)
-                        onBackClick() // Volta para a lista principal
+                        val receitaParaDeletar = receita!!
+                        coroutineScope.launch {
+                            isDeleting = true
+                            // Só sai da tela se a exclusão realmente deu certo — antes disso,
+                            // o app saía imediatamente e, se a exclusão falhasse, a tela de
+                            // detalhes de uma receita já apagada da memória ficava em branco.
+                            val sucesso = viewModel.deletarReceita(receitaParaDeletar)
+                            isDeleting = false
+                            showDeleteDialog = false
+                            if (sucesso) {
+                                onBackClick() // Volta para a lista principal
+                            }
+                        }
                     }
                 ) {
-                    Text("Deletar", color = MaterialTheme.colorScheme.error)
+                    if (isDeleting) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Deletar", color = MaterialTheme.colorScheme.error)
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(enabled = !isDeleting, onClick = { showDeleteDialog = false }) {
                     Text("Cancelar")
                 }
             }
@@ -100,14 +129,17 @@ fun RecipeDetailScreen(
         RecipeEditDetailScreen(
             receitaOriginal = receita!!,
             onSave = { receitaEditada ->
-                // 1. Atualiza a receita selecionada na memória para refletir na tela instantaneamente
-                viewModel.selecionarReceita(receitaEditada)
-
-                // 2. Dispara a chamada para salvar a edição no Notion
-                viewModel.salvarReceitaNoNotion(receitaEditada)
-
-                // 3. Sai do modo de edição voltando para a visualização
-                isEditing = false
+                // Só sai do modo de edição se o salvamento no Notion realmente confirmar
+                // sucesso — antes disso, a tela fechava e assumia sucesso na hora, perdendo
+                // a edição silenciosamente se a conexão caísse nesse meio-tempo.
+                if (!isSaving) {
+                    coroutineScope.launch {
+                        val sucesso = viewModel.salvarReceitaNoNotion(receitaEditada)
+                        if (sucesso) {
+                            isEditing = false
+                        }
+                    }
+                }
             },
             onCancel = {
                 isEditing = false
@@ -198,20 +230,6 @@ fun RecipeDetailContent(
     val context = LocalContext.current
 
     Scaffold(
-//        topBar = {
-//            TopAppBar(
-//                title = { Text("Detalhes da Receita") },
-//                navigationIcon = {
-//                    IconButton(onClick = onBackClick) {
-//                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
-//                    }
-//                },
-//                colors = TopAppBarDefaults.topAppBarColors(
-//                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-//                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                )
-//            )
-//        }
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeTopAppBar(
@@ -229,7 +247,7 @@ fun RecipeDetailContent(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
                 actions = {
@@ -279,18 +297,10 @@ fun RecipeDetailContent(
         ) {
             // Título
             item {
-//                Text(
-//                    text = receita.titulo,
-//                    style = MaterialTheme.typography.headlineMedium,
-//                    fontWeight = FontWeight.Bold,
-//                    color = MaterialTheme.colorScheme.onSurface
-//                )
-                //Spacer(modifier = Modifier.height(16.dp))
-
                 // Tempo de preparo e Tags
                 Text(
                     text = "⏱️ Tempo: ${receita.tempoPreparo}",
-                    style = MaterialTheme.typography.bodyLarge,/**/
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -436,32 +446,6 @@ fun RecipeDetailContent(
             item {
                 DicasRecipeSection(dicas = receita.dicas_video)
             }
-
-            // Dica do Chef (Se existir)
-//            if (!receita.dica.isNullOrBlank()) {
-//                item {
-//                    Card(
-//                        colors = CardDefaults.cardColors(
-//                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-//                        ),
-//                        modifier = Modifier.fillMaxWidth()
-//                    ) {
-//                        Row(modifier = Modifier.padding(16.dp)) {
-//                            Icon(
-//                                Icons.Default.Info,
-//                                contentDescription = "Dica",
-//                                tint = MaterialTheme.colorScheme.onTertiaryContainer
-//                            )
-////                            Spacer(modifier = Modifier.width(12.dp))
-////                            Text(
-////                                text = receita.dica,
-////                                style = MaterialTheme.typography.bodyMedium,
-////                                color = MaterialTheme.colorScheme.onTertiaryContainer
-////                            )
-//                        }
-//                    }
-//                }
-//            }
         }
     }
 }

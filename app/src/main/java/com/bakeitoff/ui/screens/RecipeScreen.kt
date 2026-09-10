@@ -1,7 +1,7 @@
 package com.bakeitoff.ui.screens
 
-import DicasComentario
-import Receita
+import com.bakeitoff.DicasComentario
+import com.bakeitoff.Receita
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -58,6 +58,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bakeitoff.ApiKeyManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,17 +138,10 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                 }
                 is RecipeUiState.Extracting -> LoadingScreen("IA extraindo receita...")
                 is RecipeUiState.Error -> {
-//                    BackHandler(enabled = true) {
-//                        viewModel.resetToInitial()
-//                    }
                     ErrorScreen(state.message, viewModel)
                 }
                 is RecipeUiState.Success -> {
-                    // Se extraiu com sucesso, apertar voltar permite mandar outra receita
-//                    BackHandler(enabled = true) {
-//                        viewModel.resetToInitial()
-//                    }
-                    RecipeDetailScreen(state.receita, viewModel)
+                    ExtractedRecipePreview(state.receita, viewModel)
                 }
                 else -> InitialScreen(
                     linkTexto = linkTexto,
@@ -156,7 +151,7 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                     savedUrisStrings = savedUrisStrings,
                     onUrisChange = { savedUrisStrings = it },
                     onMediaSelected = { uris, link, promptExtra ->
-                        viewModel.processMediaUris(uris, context, link, promptExtra)
+                        viewModel.processMediaUris(uris, context.applicationContext, link, promptExtra)
                     },
                     onTextOnlySubmit = { texto ->
                         viewModel.criarReceitaPorTexto(texto)
@@ -170,9 +165,9 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun RecipeDetailScreen(receita: Receita, viewModel: RecipeViewModel) {
+fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
     val isSaving by viewModel.isSavingToNotion
-    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     var tagsEditaveis = remember { mutableStateListOf<String>().apply { addAll(receita.tags) } }
     var novaTag by remember { mutableStateOf("") }
@@ -180,13 +175,6 @@ fun RecipeDetailScreen(receita: Receita, viewModel: RecipeViewModel) {
     BackHandler {
         viewModel.resetToInitial() // Volta para o estado inicial (InitialScreen)
     }
-
-//    // 2. Colocar o LaunchedEffect aqui no topo
-//    LaunchedEffect(Unit) {
-//        viewModel.uiEvent.collect { mensagem ->
-//            Toast.makeText(context, mensagem, Toast.LENGTH_SHORT).show()
-//        }
-//    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -203,19 +191,6 @@ fun RecipeDetailScreen(receita: Receita, viewModel: RecipeViewModel) {
         }
 
         // 2. Tags (Chips)
-//        item {
-//            FlowRow(
-//                horizontalArrangement = Arrangement.spacedBy(8.dp) // <-- A correção está aqui
-//            ) {
-//                receita.tags.forEach { tag ->
-//                    SuggestionChip(
-//                        onClick = { },
-//                        label = { androidx.compose.material3.Text(tag) }
-//                    )
-//                }
-//            }
-//        }
-
         item {
             Text("Tags", style = MaterialTheme.typography.titleLarge)
 
@@ -310,8 +285,10 @@ fun RecipeDetailScreen(receita: Receita, viewModel: RecipeViewModel) {
                                 val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
                                     ing.item
                                 } else {
-                                    val q = ing.quantidade?.trim() ?: ""
-                                    val u = ing.unidade?.trim() ?: ""
+                                    // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
+                                    // e pode deixar isso null quando a IA não especifica quantidade/unidade.
+                                    val q = (ing.quantidade as String?)?.trim() ?: ""
+                                    val u = (ing.unidade as String?)?.trim() ?: ""
                                     val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
                                     "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
                                 }
@@ -344,8 +321,13 @@ fun RecipeDetailScreen(receita: Receita, viewModel: RecipeViewModel) {
         item {
             Button(
                 onClick = {
-                    val receitaAtualizada = receita.copy(tags = tagsEditaveis, status = receita.status ?: "Não feito")
-                    viewModel.salvarReceitaNoNotion(receitaAtualizada)
+                    // Cast pra nullable de propósito: a IA nunca inclui "Status" no JSON extraído,
+                    // e o Gson ignora o valor padrão do Kotlin, deixando status null nesse ponto.
+                    val statusAtual = (receita.status as String?) ?: "Não feito"
+                    val receitaAtualizada = receita.copy(tags = tagsEditaveis, status = statusAtual)
+                    coroutineScope.launch {
+                        viewModel.salvarReceitaNoNotion(receitaAtualizada)
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -404,139 +386,6 @@ fun ErrorScreen(message: String, viewModel: RecipeViewModel) {
     }
 }
 
-//@Composable
-//fun InitialScreen(
-//    onMediaSelected: (List<Uri>, String?, String?) -> Unit,
-//    onTextOnlySubmit: (String) -> Unit, // Novo callback
-//    onNavigateToList: () -> Unit
-//) {
-//
-//    var linkTexto by remember { mutableStateOf("") }
-//    var instrucaoExtra by remember { mutableStateOf("") }
-//    var selectedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-//
-//    val context = LocalContext.current
-//    val apiKeyManager = ApiKeyManager
-//
-//    val pickerLauncher = rememberLauncherForActivityResult(
-//        contract = ActivityResultContracts.PickMultipleVisualMedia()
-//    ) { uris: List<Uri> ->
-//        if (uris.isNotEmpty()) {
-//            selectedUris = uris
-//        }
-//    }
-//
-//    val isMediaAttached = selectedUris.isNotEmpty() || linkTexto.isNotBlank()
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxSize()
-//            .padding(32.dp),
-//        verticalArrangement = Arrangement.Center,
-//        horizontalAlignment = Alignment.CenterHorizontally
-//    ) {
-//        Surface(
-//            shape = CircleShape,
-//            color = MaterialTheme.colorScheme.primaryContainer,
-//            modifier = Modifier.size(120.dp)
-//        ) {
-//            Box(contentAlignment = Alignment.Center) {
-//                Text(
-//                    text = "🧁",
-//                    fontSize = 56.sp,
-//                    modifier = Modifier.pointerInput(Unit) {
-//                        detectTapGestures(
-//                            onLongPress = {
-//                                apiKeyManager.toggleKey()
-//                                Toast.makeText(
-//                                    context,
-//                                    "Chave trocada para: ${apiKeyManager.getActiveKeyName()}",
-//                                    Toast.LENGTH_SHORT
-//                                ).show()
-//                            }
-//                        )
-//                    }
-//                )
-//            }
-//        }
-//
-//        Spacer(modifier = Modifier.height(32.dp))
-//
-//        // 2. O Título Chamativo
-//        Text(
-//            text = "Pronto para extrair?",
-//            style = MaterialTheme.typography.headlineSmall,
-//            fontWeight = FontWeight.Bold,
-//            color = MaterialTheme.colorScheme.onSurface,
-//            textAlign = TextAlign.Center
-//        )
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        // 3. O Texto Explicativo Secundário
-//        Text(
-//            text = "Compartilhe um vídeo do TikTok, Reels ou uma foto da sua galeria direto para o Bake It Off e deixe a IA fazer a mágica.",
-//            style = MaterialTheme.typography.bodyLarge,
-//            color = MaterialTheme.colorScheme.onSurfaceVariant, // Cor mais suave para leitura
-//            textAlign = TextAlign.Center
-//        )
-//
-//        Spacer(modifier = Modifier.height(32.dp))
-//
-//        // 2. O Botão da Galeria
-//        Button(
-//            onClick = {
-//                // Abre a galeria filtrando para Imagens e Vídeos
-//                pickerLauncher.launch(
-//                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-//                )
-//            },
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .height(56.dp)
-//        ) {
-//            Text(
-//                text = "Escolher da Galeria",
-//                style = MaterialTheme.typography.titleMedium,
-//                fontWeight = FontWeight.Bold
-//            )
-//        }
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        // 4. O Campo de Texto Opcional
-//        OutlinedTextField(
-//            value = linkTexto,
-//            onValueChange = { linkTexto = it },
-//            label = { Text("Link do TikTok / Reels (Opcional)") },
-//            singleLine = true,
-//            modifier = Modifier.fillMaxWidth()
-//        )
-//
-//        Spacer(modifier = Modifier.height(16.dp))
-//        OutlinedTextField(
-//            value = instrucaoExtra,
-//            onValueChange = { instrucaoExtra = it },
-//            label = { Text("Adaptações na Receita (Opcional)") },
-//            placeholder = { Text("Ex: Trocar frango por grão de bico, ou remover carne vermelha") },
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(vertical = 8.dp),
-//            minLines = 2,
-//            maxLines = 4
-//        )
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        OutlinedButton(
-//            onClick = onNavigateToList, // <-- Chama a navegação aqui!
-//            modifier = Modifier.fillMaxWidth(),
-//            contentPadding = PaddingValues(16.dp)
-//        ) {
-//            Text("Ver Meu Caderno de Receitas")
-//        }
-//    }
-//}
-
 @Composable
 fun InitialScreen(
     linkTexto: String,
@@ -550,8 +399,6 @@ fun InitialScreen(
     onNavigateToList: () -> Unit
 ) {
     val selectedUris = savedUrisStrings.map { Uri.parse(it) }
-
-    val context = LocalContext.current
 
     var isSubmitting by rememberSaveable { mutableStateOf(false) }
 
@@ -577,16 +424,6 @@ fun InitialScreen(
 
         // 1. Cabeçalho Visual (Componentizado)
         item {
-//            HeaderSection(
-//                onLogoLongPress = {
-//                    apiKeyManager.toggleKey()
-//                    Toast.makeText(
-//                        context,
-//                        "Chave trocada para: ${apiKeyManager.getActiveKeyName()}",
-//                        Toast.LENGTH_SHORT
-//                    ).show()
-//                }
-//            )
             HeaderSection(
                 onLogoLongPress = {
                     ApiKeyManager.toggleKey()

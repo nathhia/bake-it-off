@@ -1,8 +1,8 @@
 package com.bakeitoff.ui.screens
 
-import DicasComentario
-import Receita
-import Ingrediente // Importe sua classe de Ingrediente se necessário
+import com.bakeitoff.DicasComentario
+import com.bakeitoff.Receita
+import com.bakeitoff.Ingrediente
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -23,8 +23,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -151,7 +151,7 @@ fun RecipeEditDetailScreen(
                 )
             }
 
-            item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
+            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
 
             // --- INGREDIENTES ---
             item {
@@ -180,7 +180,7 @@ fun RecipeEditDetailScreen(
                 // Caixinhas dos ingredientes desta seção
                 items(listaDaSecao) { ingredienteAtual ->
                     // Buscamos o índice em tempo real para evitar crashes se você deletar algo
-                    val index = ingredientesEditaveis.indexOf(ingredienteAtual)
+                    val index = ingredientesEditaveis.indexOfFirst { it === ingredienteAtual }
 
                     if (index != -1) {
                         Card(
@@ -244,98 +244,8 @@ fun RecipeEditDetailScreen(
                         }
                     }
                 )
-                Divider(modifier = Modifier.padding(vertical = 24.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
             }
-//            itemsIndexed(ingredientesEditaveis) { index, ingrediente ->
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-//                ) {
-//                    Column(modifier = Modifier.padding(12.dp)) {
-//                        Row(
-//                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            // Campo: Quantidade (ex: 200)
-//                            OutlinedTextField(
-//                                value = ingrediente.quantidade ?: "",
-//                                onValueChange = { novoValor ->
-//                                    ingredientesEditaveis[index] = ingrediente.copy(quantidade = novoValor)
-//                                },
-//                                label = { Text("Qtd") },
-//                                modifier = Modifier.weight(0.3f),
-//                                singleLine = true
-//                            )
-//                            // Campo: Unidade (ex: gramas)
-//                            OutlinedTextField(
-//                                value = ingrediente.unidade ?: "",
-//                                onValueChange = { novoValor ->
-//                                    ingredientesEditaveis[index] = ingrediente.copy(unidade = novoValor)
-//                                },
-//                                label = { Text("Unid") },
-//                                modifier = Modifier.weight(0.3f),
-//                                singleLine = true
-//                            )
-//
-//                            // Botão de deletar ingrediente
-//                            IconButton(onClick = { ingredientesEditaveis.removeAt(index) }) {
-//                                Icon(Icons.Default.Delete, contentDescription = "Remover Ingrediente", tint = MaterialTheme.colorScheme.error)
-//                            }
-//                        }
-//                        Spacer(modifier = Modifier.height(8.dp))
-//                        // Campo: Nome do Ingrediente (ex: Farinha de Trigo)
-//                        OutlinedTextField(
-//                            value = ingrediente.item,
-//                            onValueChange = { novoValor ->
-//                                ingredientesEditaveis[index] = ingrediente.copy(item = novoValor)
-//                            },
-//                            label = { Text("Ingrediente") },
-//                            modifier = Modifier.fillMaxWidth(),
-//                            singleLine = true
-//                        )
-//                    }
-//                }
-//            }
-
-
-
-//            itemsIndexed(ingredientesEditaveis) { index, ingrediente ->
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-//                ) {
-//                    Column(modifier = Modifier.padding(12.dp)) {
-//                        Row(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            OutlinedTextField(
-//                                value = ingrediente.item,
-//                                onValueChange = { novoValor ->
-//                                    ingredientesEditaveis[index] = ingrediente.copy(item = novoValor)
-//                                },
-//                                label = { Text("Ingrediente (Qtd + Nome)") },
-//                                modifier = Modifier.weight(1f)
-//                            )
-//
-//                            IconButton(onClick = { ingredientesEditaveis.removeAt(index) }) {
-//                                Icon(Icons.Default.Delete, contentDescription = "Remover Ingrediente", tint = MaterialTheme.colorScheme.error)
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//
-//            item {
-//                TextButton(onClick = {
-//                    // Adiciona um ingrediente vazio no final da lista
-//                    ingredientesEditaveis.add(Ingrediente(item = "", quantidade = "", unidade = "", secao = ""))
-//                }) {
-//                    Icon(Icons.Default.Add, contentDescription = null)
-//                    Text(" Adicionar Ingrediente")
-//                }
-//                Divider(modifier = Modifier.padding(vertical = 8.dp))
-//            }
 
             // --- MODO DE PREPARO ---
             item {
@@ -378,7 +288,7 @@ fun RecipeEditDetailScreen(
 
             // --- DICAS E COMENTÁRIOS ---
             item {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text("Dicas e Comentários", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
