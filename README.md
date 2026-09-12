@@ -102,9 +102,3 @@ converter a resposta em JSON da IA num objeto `Receita` de forma segura —
 inclusive contra o comportamento do Gson de preencher campos "não-nulos" do
 Kotlin com `null` quando a IA esquece uma chave no JSON (veja os comentários
 em `RecipeJsonParser.sanitize`).
-
-## Contribuindo
-
-Esse é um projeto pessoal/entre amigos (Nathhia, Nathaff, Anderson, Felipe).
-Pull requests são bem-vindos — só lembre de nunca commitar valores reais de
-`local.properties` nem tokens/chaves em código.
