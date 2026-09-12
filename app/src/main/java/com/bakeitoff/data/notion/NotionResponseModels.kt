@@ -19,6 +19,12 @@ data class NotionPageResponse(
     val properties: NotionPageProperties
 )
 
+// Resposta da criação de página (POST /v1/pages) — só precisamos do id novo,
+// pra poder inserir a receita na lista local sem depender de uma nova busca.
+data class CreatedPageResponse(
+    val id: String
+)
+
 // As colunas da tabela (use os nomes exatos das suas colunas do Notion)
 data class NotionPageProperties(
     @SerializedName("Nome") val nome: NotionPropertyTitle?,

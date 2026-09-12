@@ -18,7 +18,7 @@ interface NotionApiService {
     suspend fun addRecipe(
         @Header("Authorization") bearerToken: String,
         @Body request: NotionCreatePageRequest
-    ): Response<Unit> // Usamos Unit pois só nos importa se o código HTTP foi 200 (Sucesso)
+    ): Response<CreatedPageResponse> // Precisamos do id da página criada
 
     @Headers(
         "Notion-Version: 2022-06-28",

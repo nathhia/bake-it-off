@@ -6,6 +6,7 @@ import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.RequestOptions
 import com.google.ai.client.generativeai.type.content
 import com.google.ai.client.generativeai.type.generationConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -87,6 +88,8 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
             val prompt = "Analise o conteúdo desta URL e extraia a receita em formato JSON: $url"
             val response = generativeModel.generateContent(prompt)
             return@withContext response.text?.replace("```json", "")?.replace("```", "")?.trim()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext null
@@ -130,6 +133,9 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
 
                 return@withContext higienizarJson(response.text)
 
+            } catch (e: CancellationException) {
+                // Cancelamento pedido pelo usuário — não é um erro de rede pra tratar/repetir.
+                throw e
             } catch (e: Exception) {
                 val errorMessage = e.message ?: ""
                 attempts++ // Incremento universal por tentativa de requisição
@@ -208,6 +214,9 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
 
                 return@withContext higienizarJson(response.text)
 
+            } catch (e: CancellationException) {
+                // Cancelamento pedido pelo usuário — não é um erro de rede pra tratar/repetir.
+                throw e
             } catch (e: Exception) {
                 val errorMessage = e.message ?: ""
                 attempts++

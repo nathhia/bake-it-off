@@ -4,6 +4,7 @@ import android.util.Log
 import com.bakeitoff.data.model.DicasComentario
 import com.bakeitoff.data.model.Ingrediente
 import com.bakeitoff.data.model.Receita
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -12,13 +13,18 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class NotionRepository(private val integrationToken: String, private val databaseId: String) {
 
     val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS) // Tempo para conectar
-        .readTimeout(30, TimeUnit.SECONDS)    // Tempo para ler a resposta
+        // 60s de leitura: com muitas receitas (paginado de 100 em 100, cada uma com
+        // ingredientes/passos/dicas em texto longo), uma página pode legitimamente
+        // demorar mais que 30s numa conexão mais lenta — o timeout estourando no meio
+        // da paginação cortava a lista silenciosamente antes de existir aviso de erro.
+        .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)   // Tempo para enviar os dados
         .build()
     private val api = Retrofit.Builder()
@@ -37,8 +43,12 @@ class NotionRepository(private val integrationToken: String, private val databas
         }
     }
 
-    // Recebe diretamente a sua classe Receita que já vem bonitinha do Gemini
-    suspend fun saveRecipe(receita: Receita, linkOrigem: String?): Boolean {
+    // Recebe diretamente a sua classe Receita que já vem bonitinha do Gemini.
+    // Retorna o id da página no Notion (nova ou existente) em caso de sucesso, ou
+    // null se falhar — quem chama usa esse id pra atualizar a lista local na hora,
+    // sem depender de uma nova busca (a API de query do Notion pode demorar alguns
+    // segundos pra "enxergar" uma página recém-criada).
+    suspend fun saveRecipe(receita: Receita, linkOrigem: String?): String? {
         try {
 
             // ==========================================
@@ -201,15 +211,16 @@ class NotionRepository(private val integrationToken: String, private val databas
 
                 val response = api.addRecipe("Bearer $integrationToken", request)
 
-                if (response.isSuccessful) {
+                val criada = response.body()
+                if (response.isSuccessful && criada != null) {
                     Log.d(
                         "BakeItOffDebug",
                         "Sucesso Híbrido! Colunas preenchidas e página desenhada."
                     )
-                    return true
+                    return criada.id
                 } else {
                     Log.e("BakeItOffDebug", "Erro do Notion: ${response.errorBody()?.string()}")
-                    return false
+                    return null
                 }
             } else {
                 // ➔ É UMA RECEITA EXISTENTE (PATCH)
@@ -224,52 +235,49 @@ class NotionRepository(private val integrationToken: String, private val databas
 
                 return if (response.isSuccessful) {
                     Log.d("BakeItOffDebug", "Receita ATUALIZADA com sucesso no Notion!")
-                    true
+                    receita.id
                 } else {
                     Log.e("BakeItOffDebug", "Erro ao atualizar: ${response.errorBody()?.string()}")
-                    false
+                    null
                 }
             }
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
-            return false
+            return null
         }
     }
 
+    // Deixa a exceção propagar em vez de engolir e emitir lista vazia — assim quem
+    // coleta esse Flow (o ViewModel) sabe que a busca falhou e pode avisar o usuário,
+    // em vez de mostrar silenciosamente "nenhuma receita" como se a lista realmente
+    // estivesse vazia.
     suspend fun buscarReceitas(): Flow<List<Receita>> = flow {
         val todasReceitas = mutableListOf<Receita>()
         var cursorAtual: String? = null
         var temMaisPaginas = true
 
-        try {
-            while (temMaisPaginas) {
-                val requestBody = QueryDatabaseRequest(start_cursor = cursorAtual)
-                val response = api.queryDatabase("Bearer $integrationToken", databaseId, requestBody)
+        while (temMaisPaginas) {
+            val requestBody = QueryDatabaseRequest(start_cursor = cursorAtual)
+            val response = api.queryDatabase("Bearer $integrationToken", databaseId, requestBody)
 
-                if (response.isSuccessful && response.body() != null) {
-                    val body = response.body()!!
-                    temMaisPaginas = body.has_more
-                    cursorAtual = body.next_cursor
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                temMaisPaginas = body.has_more
+                cursorAtual = body.next_cursor
 
-                    val receitasDaPagina = body.results.map { page -> NotionRecipeMapper.toReceita(page) }
+                val receitasDaPagina = body.results.map { page -> NotionRecipeMapper.toReceita(page) }
 
-                    todasReceitas.addAll(receitasDaPagina)
-                    emit(todasReceitas.toList())
+                todasReceitas.addAll(receitasDaPagina)
+                emit(todasReceitas.toList())
 
-                } else {
-                    Log.e("BakeItOffDebug", "Erro ao buscar do Notion: ${response.errorBody()?.string()}")
-                    temMaisPaginas = false
-                    // Emite o que já foi buscado (ou vazio, se falhou na 1ª página) pra não
-                    // deixar quem está coletando esse Flow esperando pra sempre por um valor.
-                    emit(todasReceitas.toList())
-                }
+            } else {
+                val erro = response.errorBody()?.string()
+                Log.e("BakeItOffDebug", "Erro ao buscar do Notion: $erro")
+                throw IOException("Notion respondeu ${response.code()} ao buscar receitas")
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Retorna o que foi possível buscar antes do erro, ou uma lista vazia se falhou de primeira —
-            // sempre emite pra não deixar quem está coletando esse Flow esperando pra sempre por um valor.
-            emit(todasReceitas.toList())
         }
     }.flowOn(Dispatchers.IO)
 

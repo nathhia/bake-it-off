@@ -17,7 +17,10 @@ import com.bakeitoff.data.gemini.RecipeExtractionRepository
 import com.bakeitoff.data.model.Receita
 import com.bakeitoff.data.notion.NotionRepository
 import com.google.gson.Gson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,12 +56,28 @@ class RecipeViewModel(
     val isCompressing: StateFlow<Boolean> = mediaPreparer.isCompressing
     val compressionProgress: StateFlow<Float> = mediaPreparer.compressionProgress
 
+    // Guarda o job de extração em andamento pra dar pra cancelar (ver cancelProcessing).
+    private var extractionJob: Job? = null
+
+    // Chamado pela UI (BackHandler) enquanto uiState é Uploading/Extracting, já que até
+    // agora não tinha nenhum jeito de desistir e voltar caso o usuário mude de ideia.
+    fun cancelProcessing() {
+        extractionJob?.cancel()
+        extractionJob = null
+        _uiState.value = RecipeUiState.Initial
+    }
+
     fun processLink(url: String) {
-        viewModelScope.launch {
+        extractionJob = viewModelScope.launch {
             _uiState.value = RecipeUiState.Extracting
 
             // Passamos a URL para o repositório de extração
             val jsonReceita = extractionRepository.extractFromUrl(url)
+
+            // A chamada de rede acima nem sempre é interrompida na hora pelo cancel() —
+            // sem isso, uma resposta tardia poderia sobrescrever o Initial já definido
+            // por cancelProcessing() depois que o usuário já desistiu e voltou.
+            ensureActive()
 
             if (jsonReceita != null) {
                 try {
@@ -86,7 +105,7 @@ class RecipeViewModel(
     fun processMediaUris(uris: List<Uri>, context: Context, linkTexto: String?, promptExtra: String?) {
         currentLink = linkTexto
 
-        viewModelScope.launch(Dispatchers.IO) {
+        extractionJob = viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = RecipeUiState.Uploading
             var preparedMedia: PreparedMedia? = null
 
@@ -108,11 +127,20 @@ class RecipeViewModel(
                     }
                 }
 
+                // Ver comentário equivalente em processLink: extractFromMedia pode não
+                // ser interrompida na hora pelo cancel(), então confirmamos aqui antes
+                // de aplicar um resultado que pode já ter chegado tarde demais.
+                ensureActive()
+
                 _uiState.value = when (outcome) {
                     is ExtractionOutcome.Success -> toUiState(RecipeJsonParser.parse(outcome.json))
                     is ExtractionOutcome.Failure -> RecipeUiState.Error(outcome.message)
                 }
 
+            } catch (e: CancellationException) {
+                // Cancelamento pedido pelo usuário (cancelProcessing) — não é erro,
+                // deixa propagar sem sobrescrever o estado Initial que ela já define.
+                throw e
             } catch (e: MediaPreparationException) {
                 _uiState.value = RecipeUiState.Error(e.message ?: "Falha ao preparar a mídia.")
             } catch (e: Exception) {
@@ -227,14 +255,40 @@ class RecipeViewModel(
     private val _isLoadingReceitas = MutableStateFlow(false)
     val isLoadingReceitas: StateFlow<Boolean> = _isLoadingReceitas.asStateFlow()
 
+    // Controla se já buscamos do Notion com sucesso nesta sessão. Não dá mais pra usar
+    // "a lista está vazia" como sinal disso: depois de salvar uma receita nova, ela entra
+    // direto em receitasSalvas (ver salvarReceitaNoNotion) mesmo sem nunca termos buscado
+    // o resto — daí a lista deixa de estar vazia sem nunca ter sido carregada. Só marca
+    // como concluído em caso de SUCESSO — se a busca falhar (timeout, sem internet), quem
+    // chamar de novo (ex: reabrir a tela da lista) deve poder tentar buscar de novo.
+    private var receitasCarregadasComSucesso = false
+
+    // Chamado ao abrir a tela da lista: só busca do Notion se ainda não temos uma busca
+    // bem-sucedida nesta sessão, e se não há uma busca em andamento agora.
+    fun carregarReceitasSeNecessario() {
+        if (!receitasCarregadasComSucesso && !_isLoadingReceitas.value) {
+            carregarReceitasDoNotion()
+        }
+    }
+
     // Função que busca os dados
     fun carregarReceitasDoNotion() {
         viewModelScope.launch {
             _isLoadingReceitas.value = true
-
-            notionRepository.buscarReceitas().collect { listaParcial ->
-                _receitasSalvas.value = listaParcial
-
+            try {
+                notionRepository.buscarReceitas().collect { listaParcial ->
+                    _receitasSalvas.value = listaParcial
+                    _isLoadingReceitas.value = false
+                }
+                receitasCarregadasComSucesso = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("BakeItOffDebug", "Falha ao carregar receitas do Notion", e)
+                // Mantém a lista que já tínhamos (não zera pra "nenhuma receita") e avisa
+                // que a busca falhou, em vez de deixar parecer que as receitas sumiram.
+                _uiEvent.emit("Não consegui atualizar suas receitas. Verifique sua internet.")
+            } finally {
                 _isLoadingReceitas.value = false
             }
         }
@@ -263,19 +317,28 @@ class RecipeViewModel(
     suspend fun salvarReceitaNoNotion(receita: Receita): Boolean {
         _isSavingToNotion.value = true
         try {
-            val sucesso = notionRepository.saveRecipe(receita, currentLink)
-            if (sucesso) {
+            val pageId = notionRepository.saveRecipe(receita, currentLink)
+            if (pageId != null) {
                 _uiEvent.emit("Receita salva no Notion! 🎉")
-                // Se é edição de receita existente, reflete o resultado salvo imediatamente
-                // (sem isso, a tela de detalhes só veria a edição depois de recarregar tudo).
-                if (!receita.id.isNullOrBlank()) {
-                    _receitaSelecionada.value = receita
+                val receitaSalva = receita.copy(id = pageId)
+                // Reflete o resultado salvo imediatamente na tela de detalhes (se for edição).
+                _receitaSelecionada.value = receitaSalva
+
+                // Atualiza a lista local na hora, em vez de buscar tudo de novo no Notion:
+                // a API de busca do Notion pode levar alguns segundos pra "enxergar" uma
+                // página recém-criada (inconsistência eventual), o que fazia a receita nova
+                // sumir da lista logo após salvar mesmo já estando lá de verdade.
+                _receitasSalvas.value = if (receita.id.isNullOrBlank()) {
+                    listOf(receitaSalva) + _receitasSalvas.value
+                } else {
+                    _receitasSalvas.value.map { if (it.id == pageId) receitaSalva else it }
                 }
-                carregarReceitasDoNotion() // Atualiza a lista automaticamente
             } else {
                 _uiEvent.emit("Erro ao salvar. Verifique o Logcat!")
             }
-            return sucesso
+            return pageId != null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             _uiEvent.emit("Falha de conexão: ${e.message}")
             return false
@@ -348,7 +411,7 @@ class RecipeViewModel(
     }
 
     fun criarReceitaPorTexto(descricao: String) {
-        viewModelScope.launch {
+        extractionJob = viewModelScope.launch {
             // 1. Ativa a tela de carregamento animada
             _uiState.value = RecipeUiState.Extracting
 
@@ -356,9 +419,16 @@ class RecipeViewModel(
                 // 2. Chama a IA usando o repositório de extração
                 val jsonRetornado = extractionRepository.generateFromText(descricao)
 
+                // Ver comentário equivalente em processLink: generateFromText pode não
+                // ser interrompida na hora pelo cancel(), então confirmamos aqui antes
+                // de aplicar um resultado que pode já ter chegado tarde demais.
+                ensureActive()
+
                 // 3. Manda para o parser com contagem de chaves
                 _uiState.value = toUiState(RecipeJsonParser.parse(jsonRetornado))
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 e.printStackTrace()
                 _uiState.value = RecipeUiState.Error("Erro ao gerar a receita: ${e.message}")
