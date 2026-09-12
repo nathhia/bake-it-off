@@ -43,8 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bakeitoff.R
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -69,10 +72,10 @@ fun RecipeEditDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Editar Receita") },
+                title = { Text(stringResource(R.string.editar_receita_titulo)) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancelar")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancelar))
                     }
                 },
                 actions = {
@@ -87,7 +90,7 @@ fun RecipeEditDetailScreen(
                         )
                         onSave(receitaAtualizada)
                     }) {
-                        Text("Salvar", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.salvar), fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -105,7 +108,7 @@ fun RecipeEditDetailScreen(
                 OutlinedTextField(
                     value = titulo,
                     onValueChange = { titulo = it },
-                    label = { Text("Título da Receita") },
+                    label = { Text(stringResource(R.string.titulo_da_receita)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -113,7 +116,7 @@ fun RecipeEditDetailScreen(
 
             // --- TAGS ---
             item {
-                Text("Tags", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.tags), style = MaterialTheme.typography.titleMedium)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -128,7 +131,7 @@ fun RecipeEditDetailScreen(
                                 IconButton(
                                     onClick = { tagsEditaveis.remove(tag) },
                                     modifier = Modifier.size(16.dp)
-                                ) { Icon(Icons.Default.Close, contentDescription = "Remover Tag") }
+                                ) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remover_tag)) }
                             }
                         )
                     }
@@ -136,7 +139,7 @@ fun RecipeEditDetailScreen(
                 OutlinedTextField(
                     value = novaTag,
                     onValueChange = { novaTag = it },
-                    label = { Text("Adicionar nova tag") },
+                    label = { Text(stringResource(R.string.adicionar_nova_tag)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
@@ -146,7 +149,7 @@ fun RecipeEditDetailScreen(
                                 tagsEditaveis.add(tagLimpa)
                                 novaTag = ""
                             }
-                        }) { Icon(Icons.Default.Add, contentDescription = "Adicionar Tag") }
+                        }) { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.adicionar_tag)) }
                     }
                 )
             }
@@ -155,7 +158,7 @@ fun RecipeEditDetailScreen(
 
             // --- INGREDIENTES ---
             item {
-                Text("Ingredientes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ingredientes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             // 1. Agrupamos os ingredientes pela seção
@@ -196,12 +199,12 @@ fun RecipeEditDetailScreen(
                                     onValueChange = { novoValor ->
                                         ingredientesEditaveis[index] = ingredientesEditaveis[index].copy(item = novoValor)
                                     },
-                                    label = { Text("Ingrediente") },
+                                    label = { Text(stringResource(R.string.ingrediente_label)) },
                                     modifier = Modifier.weight(1f)
                                 )
 
                                 IconButton(onClick = { ingredientesEditaveis.removeAt(index) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Remover", tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_desc), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
@@ -218,7 +221,7 @@ fun RecipeEditDetailScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Text(if (secao.isEmpty()) " Adicionar Ingrediente" else " Adicionar em $secao")
+                        Text(" " + (if (secao.isEmpty()) stringResource(R.string.adicionar_ingrediente) else stringResource(R.string.adicionar_ingrediente_em, secao)))
                     }
                 }
             }
@@ -230,7 +233,7 @@ fun RecipeEditDetailScreen(
                 OutlinedTextField(
                     value = novaSecao,
                     onValueChange = { novaSecao = it },
-                    label = { Text("Criar Nova Seção (ex: Cobertura)") },
+                    label = { Text(stringResource(R.string.criar_nova_secao)) },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     trailingIcon = {
                         IconButton(onClick = {
@@ -240,7 +243,7 @@ fun RecipeEditDetailScreen(
                                 novaSecao = "" // Limpa o campo
                             }
                         }) {
-                            Icon(Icons.Default.Add, contentDescription = "Criar Seção")
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.criar_secao_desc))
                         }
                     }
                 )
@@ -249,7 +252,7 @@ fun RecipeEditDetailScreen(
 
             // --- MODO DE PREPARO ---
             item {
-                Text("Modo de Preparo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.modo_de_preparo), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             itemsIndexed(passosEditaveis) { index, passo ->
@@ -263,7 +266,7 @@ fun RecipeEditDetailScreen(
                         onValueChange = { novoValor ->
                             passosEditaveis[index] = novoValor
                         },
-                        label = { Text("Passo ${index + 1}") },
+                        label = { Text(stringResource(R.string.passo_indexado, index + 1)) },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -271,7 +274,7 @@ fun RecipeEditDetailScreen(
                         onClick = { passosEditaveis.removeAt(index) },
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remover Passo", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_passo_desc), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -282,14 +285,14 @@ fun RecipeEditDetailScreen(
                     passosEditaveis.add("")
                 }) {
                     Icon(Icons.Default.Add, contentDescription = null)
-                    Text(" Adicionar Passo")
+                    Text(" " + stringResource(R.string.adicionar_passo))
                 }
             }
 
             // --- DICAS E COMENTÁRIOS ---
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text("Dicas e Comentários", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.dicas_e_comentarios), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
             itemsIndexed(dicasEditaveis) { index, dica ->
@@ -305,10 +308,10 @@ fun RecipeEditDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Dica ${index + 1}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.dica_indexada, index + 1), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
                             IconButton(onClick = { dicasEditaveis.removeAt(index) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remover Dica", tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_dica_desc), tint = MaterialTheme.colorScheme.error)
                             }
                         }
 
@@ -317,7 +320,7 @@ fun RecipeEditDetailScreen(
                             onValueChange = { novoTexto ->
                                 dicasEditaveis[index] = dica.copy(texto = novoTexto)
                             },
-                            label = { Text("Texto da Dica/Observação") },
+                            label = { Text(stringResource(R.string.texto_da_dica)) },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 2
                         )
@@ -362,10 +365,40 @@ fun RecipeEditDetailScreen(
                     )
                 }) {
                     Icon(Icons.Default.Add, contentDescription = null)
-                    Text(" Adicionar Observação")
+                    Text(" " + stringResource(R.string.adicionar_observacao))
                 }
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RecipeEditDetailScreenPreview() {
+    val mockReceita = Receita(
+        id = "preview-id",
+        titulo = "Pizza Babalou",
+        tempoPreparo = "30 minutos",
+        tags = listOf("Forno", "Jantar", "Vegetariano"),
+        ingredientes = listOf(
+            Ingrediente(quantidade = "1", unidade = "disco", item = "massa de pizza", secao = "Massa"),
+            Ingrediente(quantidade = "150", unidade = "g", item = "Mascarpone", secao = "Cobertura")
+        ),
+        passos = listOf(
+            "Abra a massa numa forma untada.",
+            "Espalhe o mascarpone e finalize com o queijo ralado."
+        ),
+        dicas_video = listOf(
+            DicasComentario(texto = "Fica melhor com forno bem quente.", fonte = "Pessoal", enriquecida = false)
+        )
+    )
+
+    MaterialTheme {
+        RecipeEditDetailScreen(
+            receitaOriginal = mockReceita,
+            onSave = {},
+            onCancel = {}
+        )
     }
 }

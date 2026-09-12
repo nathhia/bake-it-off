@@ -1,6 +1,5 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.DicasComentario
 import com.bakeitoff.data.model.Receita
 import android.net.Uri
 import android.widget.Toast
@@ -8,7 +7,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,14 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -50,7 +44,6 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,15 +57,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bakeitoff.R
+import com.bakeitoff.ui.components.ErrorScreen
+import com.bakeitoff.ui.components.HeaderSection
+import com.bakeitoff.ui.components.LoadingScreen
+import com.bakeitoff.ui.components.MediaSelectorSection
+import com.bakeitoff.ui.components.DicasComentarioSection
 import com.bakeitoff.viewmodel.RecipeUiState
 import com.bakeitoff.viewmodel.RecipeViewModel
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -103,12 +102,15 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Bake It Off 🧁") })
+            TopAppBar(title = { Text(stringResource(R.string.app_title_home)) })
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
             when (val state = uiState) {
                 is RecipeUiState.Uploading -> {
+                    // Sem isso, não tinha como desistir e voltar enquanto a mídia está subindo.
+                    BackHandler { viewModel.cancelProcessing() }
+
                     // Observamos os estados de compressão apenas quando estamos no Uploading
                     val isCompressing by viewModel.isCompressing.collectAsStateWithLifecycle()
                     val progress by viewModel.compressionProgress.collectAsStateWithLifecycle()
@@ -123,21 +125,24 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                             // Divide por 100f porque o Compose exige um valor entre 0.0 e 1.0
                             CircularProgressIndicator(progress = { progress / 100f })
                             Spacer(Modifier.height(16.dp))
-                            Text("Otimizando vídeo: ${progress.toInt()}%")
+                            Text(stringResource(R.string.otimizando_video, progress.toInt()))
                             Text(
-                                "Isso economiza seus tokens da IA!",
+                                stringResource(R.string.economiza_tokens),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
                         // Quando não está comprimindo (ou já terminou), mostra a mensagem normal de upload
-                        LoadingScreen("Enviando mídias para a nuvem...")
+                        LoadingScreen(stringResource(R.string.enviando_midias))
                     }
                 }
-                is RecipeUiState.Extracting -> LoadingScreen("IA extraindo receita...")
+                is RecipeUiState.Extracting -> {
+                    BackHandler { viewModel.cancelProcessing() }
+                    LoadingScreen(stringResource(R.string.ia_extraindo_receita))
+                }
                 is RecipeUiState.Error -> {
-                    ErrorScreen(state.message, viewModel)
+                    ErrorScreen(state.message, onDismiss = { viewModel.resetToInitial() })
                 }
                 is RecipeUiState.Success -> {
                     ExtractedRecipePreview(state.receita, viewModel)
@@ -192,7 +197,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
 
         // 2. Tags (Chips)
         item {
-            Text("Tags", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.tags), style = MaterialTheme.typography.titleLarge)
 
             // Renderiza as tags atuais com um botão de "X" para remover
             FlowRow(
@@ -214,7 +219,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
                                     },
                                     modifier = Modifier.size(16.dp)
                                 ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remover Tag")
+                                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remover_tag))
                                 }
                             }
                         )
@@ -226,7 +231,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
             OutlinedTextField(
                 value = novaTag,
                 onValueChange = { novaTag = it },
-                label = { Text("Adicionar nova tag") },
+                label = { Text(stringResource(R.string.adicionar_nova_tag)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
@@ -238,7 +243,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
                             novaTag = "" // Limpa o campo após adicionar
                         }
                     }) {
-                        Icon(Icons.Default.Add, contentDescription = "Adicionar Tag")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.adicionar_tag))
                     }
                 }
             )
@@ -249,7 +254,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
         // 3. Ingredientes
         item {
             Text(
-                text = "Ingredientes",
+                text = stringResource(R.string.ingredientes),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 8.dp) // Um respiro entre o título e o Card
             )
@@ -303,7 +308,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
 
         // 4. Modo de Preparo
         item {
-            Text("Passo a Passo", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.passo_a_passo), style = MaterialTheme.typography.titleLarge)
         }
 
         itemsIndexed(receita.passos) { index, passo ->
@@ -314,7 +319,7 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
         }
 
         item {
-            DicasSection(dicas = receita.dicas_video)
+            DicasComentarioSection(dicas = receita.dicas_video)
         }
 
         // 5. Botão Salvar no Notion
@@ -342,47 +347,13 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
                     )
                 } else {
                     Text(
-                        text = "Salvar no Notion",
+                        text = stringResource(R.string.salvar_no_notion),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun LoadingScreen(message: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(16.dp))
-        Text(message)
-    }
-}
-
-@Composable
-fun ErrorScreen(message: String, viewModel: RecipeViewModel) {
-    BackHandler(enabled = true) {
-        viewModel.resetToInitial()
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Ops! Algo deu errado:",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.error // Usa a cor de erro padrão do Material 3
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = message, textAlign = TextAlign.Center)
     }
 }
 
@@ -447,7 +418,7 @@ fun InitialScreen(
             OutlinedTextField(
                 value = linkTexto,
                 onValueChange = { onLinkChange(it) },
-                label = { Text("Link do TikTok / Reels (Opcional)") },
+                label = { Text(stringResource(R.string.link_tiktok_reels)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -456,8 +427,8 @@ fun InitialScreen(
         // 4. Campo de Entrada de Texto Dinâmico
         item {
             // Inteligência de UI: os textos mudam com base na presença de mídia
-            val dynamicLabel = if (isMediaAttached) "Adaptações na Receita (Opcional)" else "O que você quer comer?"
-            val dynamicPlaceholder = if (isMediaAttached) "Ex: Trocar frango por grão de bico" else "Ex: Uma torta de maçã clássica usando massa de mascarpone"
+            val dynamicLabel = if (isMediaAttached) stringResource(R.string.adaptacoes_receita) else stringResource(R.string.o_que_quer_comer)
+            val dynamicPlaceholder = if (isMediaAttached) stringResource(R.string.exemplo_adaptacao) else stringResource(R.string.exemplo_receita_texto)
 
             OutlinedTextField(
                 value = instrucaoExtra,
@@ -492,7 +463,7 @@ fun InitialScreen(
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Text(
-                        text = if (isMediaAttached) "Extrair da Mídia ✨" else "Criar Receita com IA ✨",
+                        text = if (isMediaAttached) stringResource(R.string.extrair_da_midia) else stringResource(R.string.criar_receita_com_ia),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -507,138 +478,35 @@ fun InitialScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp)
             ) {
-                Text("Ver Meu Caderno de Receitas")
+                Text(stringResource(R.string.ver_meu_caderno))
             }
         }
     }
 }
 
-// ==========================================
-// COMPONENTES AUXILIARES EXTRAÍDOS
-// ==========================================
-
+@Preview(showBackground = true)
 @Composable
-fun HeaderSection(onLogoLongPress: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Reduzimos o círculo de 120.dp para 80.dp
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(120.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "🧁",
-                    fontSize = 56.sp,
-                    modifier = Modifier.pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { onLogoLongPress() })
-                    }
-                )
-            }
-        }
-
-        // Reduzimos o espaço de 24.dp para 12.dp
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "O que vamos preparar?",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Insira um vídeo, link ou apenas descreva o prato desejado para a inteligência artificial estruturar sua receita.",
-            style = MaterialTheme.typography.bodyMedium, // Mudamos de bodyLarge para bodyMedium para ficar mais delicado
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+fun InitialScreenPreview() {
+    MaterialTheme {
+        InitialScreen(
+            linkTexto = "",
+            onLinkChange = {},
+            instrucaoExtra = "",
+            onInstrucaoChange = {},
+            savedUrisStrings = emptyList(),
+            onUrisChange = {},
+            onMediaSelected = { _, _, _ -> },
+            onTextOnlySubmit = {},
+            onNavigateToList = {},
+            onLogoLongPress = {}
         )
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-fun MediaSelectorSection(
-    hasAttachedUris: Boolean,
-    attachedUrisCount: Int,
-    onAttachClick: () -> Unit,
-    onClearMedia: () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Button(
-            onClick = onAttachClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Icon(Icons.Default.CloudUpload, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (hasAttachedUris) "Substituir Mídias" else "Anexar da Galeria",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        if (hasAttachedUris) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
-                Text(
-                    text = "$attachedUrisCount mídia(s) selecionada(s)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-                IconButton(onClick = onClearMedia, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Limpar mídias",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DicasSection(dicas: List<DicasComentario>) {
-    if (dicas.isEmpty()) return
-
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(
-            text = "Dicas e Comentários",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        dicas.forEach { dica ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (dica.enriquecida) Color(0xFFF3E5F5) else CardBackground
-                )
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(text = dica.texto, style = MaterialTheme.typography.bodyMedium)
-
-                    Text(
-                        text = if (dica.enriquecida) "IA · Dica extra" else "Vídeo · Dica original",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
+fun LoadingScreenPreview() {
+    MaterialTheme {
+        LoadingScreen("IA extraindo receita...")
     }
 }

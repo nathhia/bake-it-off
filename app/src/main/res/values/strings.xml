@@ -1,3 +1,83 @@
 <resources>
     <string name="app_name">BakeItOff</string>
+
+    <!-- Compartilhadas entre telas -->
+    <string name="tags">Tags</string>
+    <string name="ingredientes">Ingredientes</string>
+    <string name="modo_de_preparo">Modo de Preparo</string>
+    <string name="dicas_e_comentarios">Dicas e Comentários</string>
+    <string name="cancelar">Cancelar</string>
+    <string name="deletar">Deletar</string>
+    <string name="editar">Editar</string>
+    <string name="remover_tag">Remover Tag</string>
+    <string name="adicionar_tag">Adicionar Tag</string>
+    <string name="adicionar_nova_tag">Adicionar nova tag</string>
+
+    <!-- RecipeScreen -->
+    <string name="app_title_home">Bake It Off 🧁</string>
+    <string name="otimizando_video">Otimizando vídeo: %1$d%%</string>
+    <string name="economiza_tokens">Isso economiza seus tokens da IA!</string>
+    <string name="enviando_midias">Enviando mídias para a nuvem...</string>
+    <string name="ia_extraindo_receita">IA extraindo receita...</string>
+    <string name="erro_titulo">Ops! Algo deu errado:</string>
+    <string name="passo_a_passo">Passo a Passo</string>
+    <string name="salvar_no_notion">Salvar no Notion</string>
+    <string name="link_tiktok_reels">Link do TikTok / Reels (Opcional)</string>
+    <string name="adaptacoes_receita">Adaptações na Receita (Opcional)</string>
+    <string name="o_que_quer_comer">O que você quer comer?</string>
+    <string name="exemplo_adaptacao">Ex: Trocar frango por grão de bico</string>
+    <string name="exemplo_receita_texto">Ex: Uma torta de maçã clássica usando massa de mascarpone</string>
+    <string name="extrair_da_midia">Extrair da Mídia ✨</string>
+    <string name="criar_receita_com_ia">Criar Receita com IA ✨</string>
+    <string name="ver_meu_caderno">Ver Meu Caderno de Receitas</string>
+    <string name="o_que_vamos_preparar">O que vamos preparar?</string>
+    <string name="descricao_inicial">Insira um vídeo, link ou apenas descreva o prato desejado para a inteligência artificial estruturar sua receita.</string>
+    <string name="substituir_midias">Substituir Mídias</string>
+    <string name="anexar_da_galeria">Anexar da Galeria</string>
+    <string name="midias_selecionadas">%1$d mídia(s) selecionada(s)</string>
+    <string name="limpar_midias">Limpar mídias</string>
+
+    <!-- RecipeListScreen -->
+    <string name="limpar">Limpar</string>
+    <string name="filtrando_por">Filtrando por: %1$s</string>
+    <string name="buscar_receita">Buscar receita...</string>
+    <string name="icone_de_busca">Ícone de Busca</string>
+    <string name="limpar_busca">Limpar busca</string>
+    <string name="nenhuma_receita_notion">Nenhuma receita no seu Notion.</string>
+    <string name="nenhuma_receita_filtros">Nenhuma receita bate com esses filtros.</string>
+    <string name="favorito_desc">Favorito</string>
+    <string name="mais_tags">+%1$d</string>
+    <string name="menos">Menos</string>
+    <string name="favoritos_desc">Favoritos</string>
+
+    <!-- RecipeDetailScreen -->
+    <string name="deletar_receita_titulo">Deletar Receita</string>
+    <string name="deletar_receita_mensagem">Tem certeza que deseja apagar \'%1$s\'? Essa ação enviará a receita para a lixeira do seu Notion.</string>
+    <string name="voltar">Voltar</string>
+    <string name="favoritar">Favoritar</string>
+    <string name="opcoes">Opções</string>
+    <string name="mudar_status">Mudar Status</string>
+    <string name="tempo_formatado">⏱️ Tempo: %1$s</string>
+    <string name="link_da_receita">🔗 Link da Receita</string>
+    <string name="dica_extra_ia">💡 Dica extra (IA)</string>
+    <string name="minha_observacao">📝 Minha observação</string>
+    <string name="dica_do_video">📹 Dica do vídeo</string>
+
+    <!-- RecipeEditDetailScreen -->
+    <string name="editar_receita_titulo">Editar Receita</string>
+    <string name="salvar">Salvar</string>
+    <string name="titulo_da_receita">Título da Receita</string>
+    <string name="adicionar_ingrediente">Adicionar Ingrediente</string>
+    <string name="adicionar_ingrediente_em">Adicionar em %1$s</string>
+    <string name="criar_nova_secao">Criar Nova Seção (ex: Cobertura)</string>
+    <string name="criar_secao_desc">Criar Seção</string>
+    <string name="ingrediente_label">Ingrediente</string>
+    <string name="remover_desc">Remover</string>
+    <string name="passo_indexado">Passo %1$d</string>
+    <string name="remover_passo_desc">Remover Passo</string>
+    <string name="adicionar_passo">Adicionar Passo</string>
+    <string name="dica_indexada">Dica %1$d</string>
+    <string name="remover_dica_desc">Remover Dica</string>
+    <string name="texto_da_dica">Texto da Dica/Observação</string>
+    <string name="adicionar_observacao">Adicionar Observação</string>
 </resources>

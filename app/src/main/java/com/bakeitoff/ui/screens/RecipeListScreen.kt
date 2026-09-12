@@ -1,42 +1,32 @@
 package com.bakeitoff.ui.screens
 
 import com.bakeitoff.data.model.Receita
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bakeitoff.R
+import com.bakeitoff.ui.components.EmptyState
+import com.bakeitoff.ui.components.RecipeCard
+import com.bakeitoff.ui.components.StatusFilterBar
+import com.bakeitoff.ui.components.TagFilterBar
 import com.bakeitoff.viewmodel.RecipeViewModel
-
-val lightPink = Color(0xFFF5CFE4)
-val lightPurple = Color(0xFFD6DCF2)
-val CardBackground = Color(0xFFF0F2F7)
 
 @Composable
 fun RecipeListScreen(
@@ -61,9 +51,7 @@ fun RecipeListScreen(
     val todosOsStatus by viewModel.todosOsStatus.collectAsState() // NOVO
 
     LaunchedEffect(Unit) {
-        if (listaOriginal.isEmpty()) {
-            viewModel.carregarReceitasDoNotion()
-        }
+        viewModel.carregarReceitasSeNecessario()
     }
 
     // Pega todas as tags, remove as repetidas e põe em ordem alfabética
@@ -133,7 +121,8 @@ fun RecipeListContent(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     // Concatena dinamicamente o texto dependendo do que está ativo
-                    val textoFiltro = remember(searchQuery, selectedTags) {
+                    val filtrandoPorTemplate = stringResource(R.string.filtrando_por)
+                    val textoFiltro = remember(searchQuery, selectedTags, filtrandoPorTemplate) {
                         val filtrosAtivos = mutableListOf<String>()
 
                         if (searchQuery.isNotBlank()) {
@@ -143,7 +132,7 @@ fun RecipeListContent(
                             filtrosAtivos.add(selectedTags.joinToString(", "))
                         }
 
-                        "Filtrando por: ${filtrosAtivos.joinToString(" + ")}"
+                        String.format(filtrandoPorTemplate, filtrosAtivos.joinToString(" + "))
                     }
 
                     Text(
@@ -161,7 +150,7 @@ fun RecipeListContent(
                         onSearchQueryChange("") // Limpa o campo de busca
                         onClearAllTags()        // Callback para limpar o Set de tags no ViewModel
                     }) {
-                        Text("Limpar")
+                        Text(stringResource(R.string.limpar))
                     }
                 }
             }
@@ -173,13 +162,13 @@ fun RecipeListContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Buscar receita...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Ícone de Busca") },
+                placeholder = { Text(stringResource(R.string.buscar_receita)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.icone_de_busca)) },
                 trailingIcon = {
                     // Botão de "X" para limpar a busca rapidamente
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Limpar busca")
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.limpar_busca))
                         }
                     }
                 },
@@ -218,15 +207,15 @@ fun RecipeListContent(
                         CircularProgressIndicator()
                     }
                     receitas.isEmpty() && searchQuery.isBlank() && selectedTags.isEmpty() -> {
-                        Text(
-                            text = "Nenhuma receita no seu Notion.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        EmptyState(
+                            emoji = "🧁",
+                            message = stringResource(R.string.nenhuma_receita_notion)
                         )
                     }
                     receitas.isEmpty() -> {
-                        Text(
-                            text = "Nenhuma receita bate com esses filtros.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        EmptyState(
+                            emoji = "🔍",
+                            message = stringResource(R.string.nenhuma_receita_filtros)
                         )
                     }
                     else -> {
@@ -246,113 +235,6 @@ fun RecipeListContent(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun RecipeCard(
-    receita: Receita,
-    onClick: () -> Unit,
-    onTagClick: (String) -> Unit, // Callback genérico
-    selectedTags: Set<String>
-) {
-    val LightPurple = CardBackground
-    var tagsExpanded by remember { mutableStateOf(false) }
-
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = LightPurple
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp).padding(end = 32.dp)
-            ) {
-                // Título
-                Text(
-                    text = receita.titulo,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Tempo de Preparo
-                Text(
-                    text = "⏱️ ${receita.tempoPreparo}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Tags (Exibindo até 3 tags para não poluir o card)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                ) {
-                    val tagsToShow = if (tagsExpanded) receita.tags else receita.tags.take(3)
-
-                    tagsToShow.forEach { tag ->
-                        val isSelected = selectedTags.contains(tag)
-
-                        AssistChip(
-                            onClick = { onTagClick(tag) },
-                            label = {
-                                Text(
-                                    text = tag,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = lightPink,
-                                labelColor = Color(0xFF6D4C41)
-                            ),
-                            border = if (isSelected) BorderStroke(1.dp, Color.White) else null
-                        )
-                    }
-
-                    // Chip do "+X"
-                    if (receita.tags.size > 3) {
-                        if (!tagsExpanded) {
-                            AssistChip(
-                                onClick = { tagsExpanded = true }, // Ação para expandir
-                                label = { Text("+${receita.tags.size - 3}") },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = Color(0xFFF8F0F0)
-                                ),
-                                border = null
-                            )
-                        } else {
-                            AssistChip(
-                                onClick = { tagsExpanded = false }, // Ação para recolher
-                                label = { Text("Menos") },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = Color(0xFFF8F0F0)
-                                ),
-                                border = null
-                            )
-                        }
-                    }
-                }
-            }
-            if (receita.favorito) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = "Favorito",
-                    tint = Color(0xFFE91E63), // Um rosa mais vivo para destacar
-                    modifier = Modifier
-                        .align(Alignment.TopEnd) // O "pulo do gato" para alinhar
-                        .padding(16.dp)
-                )
             }
         }
     }
@@ -419,83 +301,5 @@ fun RecipeListScreenPreview() {
             todosOsStatus = listOf("Feito", "Não feito", "Quero fazer"),
             onClearAllTags = {}
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class) // Caso seu projeto ainda exija para o FilterChip
-@Composable
-fun StatusFilterBar(
-    statusSelecionado: String?,
-    onStatusSelect: (String?) -> Unit,
-    opcoes: List<String>, // Esta lista vem do seu ViewModel
-    isFavoriteFilter: Boolean,
-    onFavoriteToggle: () -> Unit
-) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        item {
-            FilterChip(
-                selected = isFavoriteFilter,
-                onClick = onFavoriteToggle,
-                label = {
-                    Icon(
-                        imageVector = if (isFavoriteFilter) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Favoritos",
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = lightPink,
-                    containerColor = Color.White
-                )
-            )
-        }
-
-        // Renderizamos apenas a lista dinâmica de status
-        items(opcoes) { opcao ->
-            // Proteção extra caso "Todos" venha escrito do Notion por engano
-            if (opcao != "Todos") {
-                val isSelected = (statusSelecionado == opcao)
-
-                FilterChip(
-                    selected = isSelected,
-                    onClick = {
-                        // Se o chip clicado já for o selecionado, manda null para limpar o filtro.
-                        // Caso contrário, seleciona a nova opção normalmente.
-                        if (isSelected) {
-                            onStatusSelect(null)
-                        } else {
-                            onStatusSelect(opcao)
-                        }
-                    },
-                    label = { Text(opcao) }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TagFilterBar(
-    todasAsTags: List<String>,
-    selectedTags: Set<String>,
-    onTagSelect: (String) -> Unit,
-) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(todasAsTags) { tag ->
-            FilterChip(
-                selected = selectedTags.contains(tag), // Verifica no Set
-                onClick = { onTagSelect(tag) },
-                label = { Text(tag) }
-            )
-        }
     }
 }

@@ -1,6 +1,5 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.DicasComentario
 import com.bakeitoff.data.model.Ingrediente
 import com.bakeitoff.data.model.Receita
 import android.content.Intent
@@ -15,10 +14,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -35,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -42,6 +40,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bakeitoff.R
+import com.bakeitoff.ui.components.DicasComentarioSection
+import com.bakeitoff.ui.components.StatusSelector
 import com.bakeitoff.viewmodel.RecipeViewModel
 import kotlinx.coroutines.launch
 
@@ -88,8 +89,8 @@ fun RecipeDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
-            title = { Text("Deletar Receita") },
-            text = { Text("Tem certeza que deseja apagar '${receita?.titulo}'? Essa ação enviará a receita para a lixeira do seu Notion.") },
+            title = { Text(stringResource(R.string.deletar_receita_titulo)) },
+            text = { Text(stringResource(R.string.deletar_receita_mensagem, receita?.titulo ?: "")) },
             confirmButton = {
                 TextButton(
                     enabled = !isDeleting,
@@ -112,13 +113,13 @@ fun RecipeDetailScreen(
                     if (isDeleting) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Deletar", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.deletar), color = MaterialTheme.colorScheme.error)
                     }
                 }
             },
             dismissButton = {
                 TextButton(enabled = !isDeleting, onClick = { showDeleteDialog = false }) {
-                    Text("Cancelar")
+                    Text(stringResource(R.string.cancelar))
                 }
             }
         )
@@ -169,48 +170,6 @@ fun RecipeDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun StatusSelector(statusAtual: String, onStatusChange: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val opcoes = listOf("Feito", "Não feito", "Quero fazer")
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        // Usamos um botão como gatilho. Ele é mais fino que o TextField.
-        OutlinedButton(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = statusAtual, style = MaterialTheme.typography.bodyMedium)
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Mudar Status")
-            }
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth(0.9f) // Menu alinhado com o botão
-        ) {
-            opcoes.forEach { opcao ->
-                DropdownMenuItem(
-                    text = { Text(opcao) },
-                    onClick = {
-                        onStatusChange(opcao)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
 // ==========================================
 // 2. O "Pintor" (Stateless)
 // ==========================================
@@ -247,7 +206,7 @@ fun RecipeDetailContent(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.voltar))
                     }
                 },
                 actions = {
@@ -255,14 +214,14 @@ fun RecipeDetailContent(
                     IconButton(onClick = onFavoriteToggle) {
                         Icon(
                             imageVector = if (receita.favorito) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favoritar",
+                            contentDescription = stringResource(R.string.favoritar),
                             tint = if (receita.favorito) Color(0xFFE91E63) else Color.Gray
                         )
                     }
 
                     // 2. Menu de Ações Futuras (Editar/Deletar)
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Opções")
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.opcoes))
                     }
 
                     DropdownMenu(
@@ -270,14 +229,14 @@ fun RecipeDetailContent(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Editar") },
+                            text = { Text(stringResource(R.string.editar)) },
                             onClick = {
                                 showMenu = false
                                 onEdit()
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Deletar") },
+                            text = { Text(stringResource(R.string.deletar)) },
                             onClick = {
                                 showMenu = false
                                 onDelete()
@@ -299,7 +258,7 @@ fun RecipeDetailContent(
             item {
                 // Tempo de preparo e Tags
                 Text(
-                    text = "⏱️ Tempo: ${receita.tempoPreparo}",
+                    text = stringResource(R.string.tempo_formatado, receita.tempoPreparo),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -331,7 +290,7 @@ fun RecipeDetailContent(
             // Ingredientes
             item {
                 Text(
-                    text = "Ingredientes",
+                    text = stringResource(R.string.ingredientes),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -382,7 +341,7 @@ fun RecipeDetailContent(
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Modo de Preparo",
+                    text = stringResource(R.string.modo_de_preparo),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -422,7 +381,7 @@ fun RecipeDetailContent(
                 if (!receita.link.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "🔗 Link da Receita",
+                        text = stringResource(R.string.link_da_receita),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             color = MaterialTheme.colorScheme.primary,
                             textDecoration = TextDecoration.Underline,
@@ -444,57 +403,7 @@ fun RecipeDetailContent(
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             item {
-                DicasRecipeSection(dicas = receita.dicas_video)
-            }
-        }
-    }
-}
-
-@Composable
-fun DicasRecipeSection(dicas: List<DicasComentario>) {
-    // Se a lista estiver vazia, não renderiza nada
-    if (dicas.isEmpty()) return
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        Text(
-            text = "Dicas e Comentários",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        dicas.forEach { dica ->
-            val (corFundo, rotulo) = when (dica.fonte) {
-                "IA" -> Pair(Color(0xFFF3E5F5), "💡 Dica extra (IA)")
-                "Pessoal" -> Pair(Color(0xFFE3F2FD), "📝 Minha observação")
-                else -> Pair(CardDefaults.cardColors().containerColor, "📹 Dica do vídeo")
-            }
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(containerColor = corFundo)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = dica.texto,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-
-                    // Identificador de fonte
-                    Text(
-                        text = rotulo,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                DicasComentarioSection(dicas = receita.dicas_video)
             }
         }
     }
