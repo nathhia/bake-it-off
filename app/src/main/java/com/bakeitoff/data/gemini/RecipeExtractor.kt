@@ -96,12 +96,12 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
         }
     }
 
-    private fun higienizarJson(textoBruto: String?): String? {
-        val texto = textoBruto?.trim() ?: return null
-        return if (texto.startsWith("```")) {
-            texto.replace(Regex("^```json\\s*|\\s*```$"), "").trim()
+    private fun sanitizeJson(rawText: String?): String? {
+        val text = rawText?.trim() ?: return null
+        return if (text.startsWith("```")) {
+            text.replace(Regex("^```json\\s*|\\s*```$"), "").trim()
         } else {
-            texto
+            text
         }
     }
 
@@ -112,12 +112,12 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
     ): String? = withContext(Dispatchers.IO) {
 
         var attempts = 0
-        val maxAttempts = 15 // Mantém o polling de ~1 minuto e meio para processamento de vídeo
+        val maxAttempts = 15 // Keeps the ~1.5 minute polling window for video processing
 
         var quotaAttempts = 0
-        val maxQuotaAttempts = 4 // Reduzido, pois a troca de chave mitiga a espera
+        val maxQuotaAttempts = 4 // Reduced, since the key rotation mitigates the wait
 
-        // coroutineContext.isActive garante o cancelamento limpo se o usuário sair da tela
+        // coroutineContext.isActive ensures a clean cancellation if the user leaves the screen
         while (attempts < maxAttempts && coroutineContext.isActive) {
             try {
                 val inputContent = content {
@@ -131,24 +131,24 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
                 val response = generativeModel.generateContent(inputContent)
                 Log.d("BakeItOffDebug", "Sucesso! Extração concluída na tentativa ${attempts + 1}.")
 
-                return@withContext higienizarJson(response.text)
+                return@withContext sanitizeJson(response.text)
 
             } catch (e: CancellationException) {
-                // Cancelamento pedido pelo usuário — não é um erro de rede pra tratar/repetir.
+                // Cancellation requested by the user — not a network error to handle/retry.
                 throw e
             } catch (e: Exception) {
                 val errorMessage = e.message ?: ""
-                attempts++ // Incremento universal por tentativa de requisição
+                attempts++ // Universal increment per request attempt
 
                 when {
-                    // Cenário 1: Vídeo ainda processando no servidor do Google
+                    // Scenario 1: Video still processing on Google's server
                     errorMessage.contains("FAILED_PRECONDITION", ignoreCase = true) ||
                             errorMessage.contains("processing", ignoreCase = true) -> {
                         Log.d("BakeItOffDebug", "Vídeo processando (Tentativa $attempts/$maxAttempts). Aguardando 5s...")
                         delay(5000)
                     }
 
-                    // Cenário 2: Erro de Cota / Limite de Requisições (429)
+                    // Scenario 2: Quota / rate limit error (429)
                     errorMessage.contains("Quota", ignoreCase = true) || errorMessage.contains("429") -> {
                         quotaAttempts++
                         if (quotaAttempts > maxQuotaAttempts) {
@@ -156,24 +156,24 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
                             return@withContext null
                         }
 
-                        val tempoEspera = (quotaAttempts * 2000L)
+                        val waitTime = (quotaAttempts * 2000L)
                         Log.w("BakeItOffDebug", "Cota atingida! Rotacionando chave de API instantaneamente...")
-                        apiKeyManager.toggleKey() // Troca a chave sem congelar o app por 15s
-                        delay(tempoEspera)
+                        apiKeyManager.toggleKey() // Swaps the key without freezing the app for 15s
+                        delay(waitTime)
 
                         if (videoUri != null) {
                             throw KeyRotatedException()
                         }
                     }
 
-                    // Cenário 3: Instabilidade no servidor do Google (503)
+                    // Scenario 3: Google's server is unstable (503)
                     errorMessage.contains("503") || errorMessage.contains("high demand", ignoreCase = true) -> {
                         quotaAttempts++
                         if (quotaAttempts > maxQuotaAttempts) return@withContext null
 
-                        val tempoEspera = (quotaAttempts * quotaAttempts) * 5000L
-                        Log.w("BakeItOffDebug", "Servidor sobrecarregado (503) na mídia. Aplicando Backoff de ${tempoEspera/1000}s...")
-                        delay(tempoEspera)
+                        val waitTime = (quotaAttempts * quotaAttempts) * 5000L
+                        Log.w("BakeItOffDebug", "Servidor sobrecarregado (503) na mídia. Aplicando Backoff de ${waitTime/1000}s...")
+                        delay(waitTime)
                     }
 
                     errorMessage.contains("403") || errorMessage.contains("PERMISSION_DENIED") || errorMessage.contains("MissingFieldException") -> {
@@ -181,7 +181,18 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
                         throw KeyRotatedException()
                     }
 
-                    // Cenário 4: Qualquer outro erro fatal (Sem internet, Token inválido, etc)
+                    // Scenario 4: Socket/network timeout mid-request. The SDK wraps this as a generic
+                    // "Something unexpected happened." at the top level — the actual
+                    // SocketTimeoutException only shows up in the cause chain — so it doesn't match
+                    // any of the scenarios above and used to fall straight into "fatal", giving up
+                    // after a single attempt even though a stalled connection on a large video
+                    // upload is exactly the kind of thing worth retrying.
+                    isTimeoutError(e) -> {
+                        Log.w("BakeItOffDebug", "Timeout de rede na extração de mídia (Tentativa $attempts/$maxAttempts). Tentando de novo...")
+                        delay(3000)
+                    }
+
+                    // Scenario 5: Any other fatal error (no internet, invalid token, etc.)
                     else -> {
                         Log.e("BakeItOffDebug", "Erro fatal não recuperável na extração de mídia: $errorMessage", e)
                         return@withContext null
@@ -192,10 +203,10 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
         return@withContext null
     }
 
-    suspend fun generateFromText(descricaoUsuario: String): String? = withContext(Dispatchers.IO) {
+    suspend fun generateFromText(userDescription: String): String? = withContext(Dispatchers.IO) {
 
         var attempts = 0
-        val maxAttempts = 4 // Reduzido: sem polling de arquivo, falhas aqui são apenas infra ou cota
+        val maxAttempts = 4 // Reduced: no file polling, failures here are only infra or quota
 
         var quotaAttempts = 0
         val maxQuotaAttempts = 3
@@ -205,47 +216,54 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
                 Log.d("BakeItOffDebug", "Geração por texto: Tentativa ${attempts + 1} de $maxAttempts...")
 
                 val prompt = """
-                O usuário descreveu: "$descricaoUsuario".
+                O usuário descreveu: "$userDescription".
                 Crie uma receita completa e retorne estritamente o objeto JSON.
             """.trimIndent()
 
                 val response = generativeModel.generateContent(prompt)
                 Log.d("BakeItOffDebug", "Sucesso! Resposta de texto recebida.")
 
-                return@withContext higienizarJson(response.text)
+                return@withContext sanitizeJson(response.text)
 
             } catch (e: CancellationException) {
-                // Cancelamento pedido pelo usuário — não é um erro de rede pra tratar/repetir.
+                // Cancellation requested by the user — not a network error to handle/retry.
                 throw e
             } catch (e: Exception) {
                 val errorMessage = e.message ?: ""
                 attempts++
 
                 when {
-                    // Cenário 1: Erro de Cota (429)
+                    // Scenario 1: Quota error (429)
                     errorMessage.contains("Quota", ignoreCase = true) || errorMessage.contains("429") -> {
                         quotaAttempts++
                         if (quotaAttempts > maxQuotaAttempts) {
                             Log.e("BakeItOffDebug", "Limite de erros de cota excedido no texto. Abortando.")
                             return@withContext null
                         }
-                        val tempoEspera = (quotaAttempts * 2000L)
+                        val waitTime = (quotaAttempts * 2000L)
                         Log.w("BakeItOffDebug", "Cota atingida no texto! Alternando API Key...")
                         apiKeyManager.toggleKey()
-                        delay(tempoEspera)
+                        delay(waitTime)
                     }
 
-                    // Cenário 2: Servidor instável (503)
+                    // Scenario 2: Unstable server (503)
                     errorMessage.contains("503") || errorMessage.contains("high demand", ignoreCase = true) -> {
                         quotaAttempts++
                         if (quotaAttempts > maxQuotaAttempts) return@withContext null
 
-                        val tempoEspera = (quotaAttempts * quotaAttempts) * 5000L
-                        Log.w("BakeItOffDebug", "Servidor sobrecarregado (503) no texto. Aplicando Backoff de ${tempoEspera/1000}s...")
-                        delay(tempoEspera)
+                        val waitTime = (quotaAttempts * quotaAttempts) * 5000L
+                        Log.w("BakeItOffDebug", "Servidor sobrecarregado (503) no texto. Aplicando Backoff de ${waitTime/1000}s...")
+                        delay(waitTime)
                     }
 
-                    // Cenário 3: Erro fatal
+                    // Scenario 3: Socket/network timeout mid-request — see the matching comment
+                    // in extractFromMultiMedia for why this needs its own check.
+                    isTimeoutError(e) -> {
+                        Log.w("BakeItOffDebug", "Timeout de rede na geração de texto (Tentativa $attempts/$maxAttempts). Tentando de novo...")
+                        delay(3000)
+                    }
+
+                    // Scenario 4: Fatal error
                     else -> {
                         Log.e("BakeItOffDebug", "Erro fatal na geração de texto: $errorMessage", e)
                         return@withContext null
@@ -256,6 +274,18 @@ class RecipeExtractor(private val apiKeyManager: ApiKeyManager) {
         return@withContext null
     }
 
+    // Walks the cause chain because the SDK's top-level exception message ("Something
+    // unexpected happened.") doesn't mention the timeout at all — only the wrapped
+    // SocketTimeoutException, one or more levels down, does.
+    private fun isTimeoutError(e: Throwable): Boolean {
+        var current: Throwable? = e
+        while (current != null) {
+            if (current is java.net.SocketTimeoutException) return true
+            if (current.message?.contains("timeout", ignoreCase = true) == true) return true
+            current = current.cause
+        }
+        return false
+    }
 }
 
 class KeyRotatedException : Exception("A chave foi rotacionada. Necessário re-upload silencioso.")

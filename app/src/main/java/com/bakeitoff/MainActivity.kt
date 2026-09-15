@@ -1,23 +1,20 @@
 package com.bakeitoff
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.bakeitoff.data.gemini.ApiKeyManager
-import com.bakeitoff.data.gemini.GeminiFileUploader
-import com.bakeitoff.data.gemini.MediaPreparer
-import com.bakeitoff.data.gemini.RecipeExtractionRepository
-import com.bakeitoff.data.gemini.RecipeExtractor
-import com.bakeitoff.data.notion.NotionRepository
 import com.bakeitoff.ui.screens.RecipeScreen
 import com.bakeitoff.ui.theme.BakeItOffTheme
 import com.bakeitoff.viewmodel.RecipeViewModel
@@ -28,26 +25,27 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val notionToken = BuildConfig.NOTION_TOKEN
-                val notionDatabaseId = BuildConfig.NOTION_DATABASE_ID
-
-                val apiKeyManager = ApiKeyManager()
-                val uploader = GeminiFileUploader(applicationContext, apiKeyManager)
-                val extractor = RecipeExtractor(apiKeyManager)
-                val extractionRepository = RecipeExtractionRepository(uploader, extractor, apiKeyManager)
-                val mediaPreparer = MediaPreparer()
-                val notionRepo = NotionRepository(notionToken, notionDatabaseId)
-
-                return RecipeViewModel(mediaPreparer, extractionRepository, notionRepo, apiKeyManager) as T
+                val app = application as BakeItOffApplication
+                return RecipeViewModel(app, app.mediaPreparer, app.notionRepository, app.apiKeyManager) as T
             }
         }
     }
 
+    // The pipeline runs fine without this permission (the foreground service still keeps it
+    // alive) — this only controls whether she actually sees the progress/result notifications.
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* no-op either way */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         Log.d("BakeItOffDebug", "onCreate chamado! Action: ${intent?.action}, Data: ${intent?.data}")
-        processarIntent(intent)
+        processIntent(intent)
 
         setContent {
             BakeItOffTheme {
@@ -55,7 +53,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 2. Você chama a tela principal e passa o ViewModel para ela
+                    // Calls the main screen and passes it the ViewModel
                     BakeItOffApp(viewModel = viewModel)
                 }
             }
@@ -65,10 +63,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        processarIntent(intent)
+        processIntent(intent)
     }
 
-    private fun processarIntent(intent: Intent?) {
+    private fun processIntent(intent: Intent?) {
         intent?.let { it ->
             val action = it.action
             val type = it.type
@@ -76,7 +74,7 @@ class MainActivity : ComponentActivity() {
             var videoUri: Uri? = null
             val imageUris = mutableListOf<Uri>()
 
-            // Cenário 1: Compartilhamento de MÚLTIPLOS arquivos (Vídeo + Prints)
+            // Scenario 1: sharing MULTIPLE files (video + screenshots)
             if (action == Intent.ACTION_SEND_MULTIPLE) {
                 val uris = it.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
 
@@ -90,20 +88,19 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (videoUri != null || imageUris.isNotEmpty()) {
-                    // Juntamos tudo numa lista só para a nova função
-                    val todasAsUris = mutableListOf<Uri>()
-                    videoUri?.let { todasAsUris.add(it) }
-                    todasAsUris.addAll(imageUris)
+                    // Merge everything into a single list for the new function
+                    val allUris = mutableListOf<Uri>()
+                    videoUri?.let { allUris.add(it) }
+                    allUris.addAll(imageUris)
 
                     viewModel.processMediaUris(
-                        uris = todasAsUris,
-                        context = applicationContext,
-                        linkTexto = null,
-                        promptExtra = null
+                        uris = allUris,
+                        linkText = null,
+                        extraPrompt = null
                     )
                 }
             }
-            // Cenário 2: Compartilhamento de UM ÚNICO item (Vídeo, Imagem ou Link)
+            // Scenario 2: sharing a SINGLE item (video, image or link)
             else if (action == Intent.ACTION_SEND) {
                 val uri = it.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
                     ?: it.clipData?.getItemAt(0)?.uri
@@ -117,19 +114,18 @@ class MainActivity : ComponentActivity() {
                         imageUris.add(uri)
                     }
 
-                    // Juntamos tudo numa lista só para a nova função
-                    val todasAsUris = mutableListOf<Uri>()
-                    videoUri?.let { todasAsUris.add(it) }
-                    todasAsUris.addAll(imageUris)
+                    // Merge everything into a single list for the new function
+                    val allUris = mutableListOf<Uri>()
+                    videoUri?.let { allUris.add(it) }
+                    allUris.addAll(imageUris)
 
                     viewModel.processMediaUris(
-                        uris = todasAsUris,
-                        context = applicationContext,
-                        linkTexto = null,
-                        promptExtra = null
+                        uris = allUris,
+                        linkText = null,
+                        extraPrompt = null
                     )
                 } else {
-                    // Se a URI for nula, tentamos extrair como texto (Link do TikTok/Insta)
+                    // If the URI is null, try to extract it as text (a TikTok/Insta link)
                     val sharedText = it.getStringExtra(Intent.EXTRA_TEXT)
                     if (!sharedText.isNullOrBlank()) {
                         Log.d("BakeItOffDebug", "Link detectado, enviando para o ViewModel: $sharedText")
@@ -139,8 +135,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Consome o intent para evitar reprocessamento se a Activity for recriada
-        // depois (ex: rotação de tela), o que disparia o pipeline de novo do zero.
+        // Consumes the intent to avoid reprocessing it if the Activity gets recreated
+        // later (e.g. screen rotation), which would fire the whole pipeline again from scratch.
         setIntent(Intent())
     }
 }

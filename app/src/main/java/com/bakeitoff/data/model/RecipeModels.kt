@@ -2,28 +2,28 @@ package com.bakeitoff.data.model
 
 import com.google.gson.annotations.SerializedName
 
-data class Receita(
+data class Recipe(
     val id: String?,
-    @SerializedName("titulo") val titulo: String,
-    @SerializedName("tempo_preparo") val tempoPreparo: String,
-    @SerializedName("ingredientes") val ingredientes: List<Ingrediente>,
-    @SerializedName("passos") val passos: List<String>,
-    @SerializedName("Favorito") val favorito: Boolean = false,
+    @SerializedName("titulo") val title: String,
+    @SerializedName("tempo_preparo") val prepTime: String,
+    @SerializedName("ingredientes") val ingredients: List<Ingredient>,
+    @SerializedName("passos") val steps: List<String>,
+    @SerializedName("Favorito") val favorite: Boolean = false,
     @SerializedName(value = "Status") val status: String = "Não feito",
     @SerializedName("Link") val link: String? = null,
-    @SerializedName("dicas_video") val dicas_video: List<DicasComentario> = emptyList(),
-    @SerializedName("tags") val tags: List<String> // Adicionamos as tags aqui!
+    @SerializedName("dicas_video") val videoTips: List<RecipeTip> = emptyList(),
+    @SerializedName("tags") val tags: List<String> // Also carries the recipe's tags!
 )
 
-data class Ingrediente(
-    @SerializedName("quantidade") val quantidade: String,
-    @SerializedName("unidade") val unidade: String,
+data class Ingredient(
+    @SerializedName("quantidade") val quantity: String,
+    @SerializedName("unidade") val unit: String,
     @SerializedName("item") val item: String,
-    @SerializedName("secao") val secao: String? = null
+    @SerializedName("secao") val section: String? = null
 )
 
-data class DicasComentario(
-    val texto: String,
-    val fonte: String, // ex: "Video", "IA", "Comunidade"
-    val enriquecida: Boolean // para saber se foi a IA que adicionou
+data class RecipeTip(
+    @SerializedName("texto") val text: String,
+    @SerializedName("fonte") val source: String, // e.g.: "Video", "IA", "Comunidade"
+    @SerializedName("enriquecida") val enriched: Boolean // whether the AI added/expanded this tip
 )

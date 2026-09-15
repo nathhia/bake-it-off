@@ -80,4 +80,11 @@
     <string name="remover_dica_desc">Remover Dica</string>
     <string name="texto_da_dica">Texto da Dica/Observação</string>
     <string name="adicionar_observacao">Adicionar Observação</string>
+
+    <!-- Notificações do processamento em segundo plano -->
+    <string name="canal_progresso_extracao">Extração de receitas</string>
+    <string name="canal_resultado_extracao">Receitas prontas</string>
+    <string name="notificacao_processando_titulo">Preparando sua receita…</string>
+    <string name="notificacao_sucesso_titulo">Receita extraída! 🎉</string>
+    <string name="notificacao_erro_titulo">Não deu certo dessa vez 😕</string>
 </resources>

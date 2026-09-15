@@ -1,9 +1,10 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Recipe
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -31,44 +32,43 @@ import com.bakeitoff.viewmodel.RecipeViewModel
 @Composable
 fun RecipeListScreen(
     viewModel: RecipeViewModel,
-    onRecipeClick: (Receita) -> Unit
+    onRecipeClick: (Recipe) -> Unit
 ) {
-    // ATENÇÃO AQUI: Agora escutamos a receitasExibidas (já filtrada) e não a receitasSalvas
-    val receitas by viewModel.receitasExibidas.collectAsState()
-    val isLoading by viewModel.isLoadingReceitas.collectAsState()
+    // NOTE: we listen to displayedRecipes (already filtered), not savedRecipes
+    val recipes by viewModel.displayedRecipes.collectAsState()
+    val isLoading by viewModel.isLoadingRecipes.collectAsState()
 
-    // Pegamos a lista original inteira SÓ para extrair as tags disponíveis
-    val listaOriginal by viewModel.receitasSalvas.collectAsState()
+    // Grab the whole original list JUST to extract the available tags
+    val originalList by viewModel.savedRecipes.collectAsState()
 
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedTags by viewModel.selectedTags.collectAsState()
 
     val isFavoriteFilter by viewModel.isFavoriteFilter.collectAsState()
 
-    val statusSelecionado by viewModel.statusSelecionado.collectAsState()
+    val selectedStatus by viewModel.selectedStatus.collectAsState()
 
-    //val todasAsTags by viewModel.todasAsTags.collectAsState() // (já existente)
-    val todosOsStatus by viewModel.todosOsStatus.collectAsState() // NOVO
+    val allStatuses by viewModel.allStatuses.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.carregarReceitasSeNecessario()
+        viewModel.loadRecipesIfNeeded()
     }
 
-    // Pega todas as tags, remove as repetidas e põe em ordem alfabética
-    val todasAsTags = listaOriginal
-        .flatMap { it.tags } // 1. Pega todas as tags de todas as receitas
-        .groupingBy { it }   // 2. Agrupa por nome da tag
-        .eachCount()         // 3. Conta quantas vezes cada uma aparece
-        .entries             // 4. Transforma em uma lista de pares (Tag, Quantidade)
+    // Grabs all tags, removes duplicates and sorts them
+    val allTags = originalList
+        .flatMap { it.tags } // 1. Grab all tags from every recipe
+        .groupingBy { it }   // 2. Group by tag name
+        .eachCount()         // 3. Count how many times each one appears
+        .entries             // 4. Turn it into a list of (tag, count) pairs
         .sortedWith(
-            compareByDescending<Map.Entry<String, Int>> { it.value } // Primeiro: Ordena pela quantidade (mais frequente primeiro)
-                .thenBy { it.key }                                   // Segundo: Se a quantidade for igual, mantém alfabético
+            compareByDescending<Map.Entry<String, Int>> { it.value } // First: sort by count (most frequent first)
+                .thenBy { it.key }                                   // Then: if the count ties, keep alphabetical order
         )
         .map { it.key }
 
     RecipeListContent(
-        receitas = receitas, // Passamos a lista que já sofreu o filtro!
-        todasAsTags = todasAsTags,
+        recipes = recipes, // Pass the already-filtered list!
+        allTags = allTags,
         searchQuery = searchQuery,
         selectedTags = selectedTags,
         isLoading = isLoading,
@@ -77,41 +77,41 @@ fun RecipeListScreen(
         onRecipeClick = onRecipeClick,
         onFavoriteToggle = { viewModel.toggleFavoriteFilter() },
         isFavoriteFilter = isFavoriteFilter,
-        statusSelecionado = statusSelecionado, // Passe o estado
+        selectedStatus = selectedStatus,
         onStatusChanged = { viewModel.onStatusChanged(it)},
-        todosOsStatus = todosOsStatus,
+        allStatuses = allStatuses,
         onClearAllTags = { viewModel.cleanTags()}
     )
 }
 
 // ==========================================
-// 2. O "Pintor" (Stateless)
+// 2. The "Painter" (stateless)
 // ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeListContent(
-    receitas: List<Receita>,
-    todasAsTags: List<String>,
+    recipes: List<Recipe>,
+    allTags: List<String>,
     searchQuery: String,
     selectedTags: Set<String>,
     isLoading: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onTagSelect: (String) -> Unit,
-    onRecipeClick: (Receita) -> Unit,
+    onRecipeClick: (Recipe) -> Unit,
     onFavoriteToggle: () -> Unit,
     isFavoriteFilter: Boolean,
-    statusSelecionado: String?,
+    selectedStatus: String?,
     onStatusChanged: (String?) -> Unit,
-    todosOsStatus: List<String>,
+    allStatuses: List<String>,
     onClearAllTags: () -> Unit
 ) {
     Scaffold { paddingValues ->
-        Column( // Mudamos o Box principal para Column para empilhar a busca e a lista
+        Column( // Changed the main Box to a Column to stack the search bar and the list
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // --- INDICADOR DE FILTRO ATIVO ---
+            // --- ACTIVE FILTER INDICATOR ---
             if (selectedTags.isNotEmpty() || searchQuery.isNotBlank()) {
                 Row(
                     modifier = Modifier
@@ -120,42 +120,42 @@ fun RecipeListContent(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Concatena dinamicamente o texto dependendo do que está ativo
-                    val filtrandoPorTemplate = stringResource(R.string.filtrando_por)
-                    val textoFiltro = remember(searchQuery, selectedTags, filtrandoPorTemplate) {
-                        val filtrosAtivos = mutableListOf<String>()
+                    // Dynamically concatenates the text depending on what's active
+                    val filteringByTemplate = stringResource(R.string.filtrando_por)
+                    val filterText = remember(searchQuery, selectedTags, filteringByTemplate) {
+                        val activeFilters = mutableListOf<String>()
 
                         if (searchQuery.isNotBlank()) {
-                            filtrosAtivos.add("\"$searchQuery\"")
+                            activeFilters.add("\"$searchQuery\"")
                         }
                         if (selectedTags.isNotEmpty()) {
-                            filtrosAtivos.add(selectedTags.joinToString(", "))
+                            activeFilters.add(selectedTags.joinToString(", "))
                         }
 
-                        String.format(filtrandoPorTemplate, filtrosAtivos.joinToString(" + "))
+                        String.format(filteringByTemplate, activeFilters.joinToString(" + "))
                     }
 
                     Text(
-                        text = textoFiltro,
+                        text = filterText,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f), // Garante que o texto longo não quebre o layout do botão
+                        modifier = Modifier.weight(1f), // Ensures a long text doesn't break the button's layout
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    // Botão de "Limpar tudo"
+                    // "Clear all" button
                     TextButton(onClick = {
-                        onSearchQueryChange("") // Limpa o campo de busca
-                        onClearAllTags()        // Callback para limpar o Set de tags no ViewModel
+                        onSearchQueryChange("") // Clears the search field
+                        onClearAllTags()        // Callback to clear the tag Set in the ViewModel
                     }) {
                         Text(stringResource(R.string.limpar))
                     }
                 }
             }
 
-            // --- BARRA DE PESQUISA ---
+            // --- SEARCH BAR ---
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
@@ -165,7 +165,7 @@ fun RecipeListContent(
                 placeholder = { Text(stringResource(R.string.buscar_receita)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.icone_de_busca)) },
                 trailingIcon = {
-                    // Botão de "X" para limpar a busca rapidamente
+                    // "X" button to quickly clear the search
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
                             Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.limpar_busca))
@@ -173,13 +173,13 @@ fun RecipeListContent(
                     }
                 },
                 singleLine = true,
-                shape = MaterialTheme.shapes.extraLarge // Deixa redondinho e moderno
+                shape = MaterialTheme.shapes.extraLarge // Keeps it round and modern
             )
 
-            // --- FILTRO DE TAGS (Rola na horizontal) ---
-            if (todasAsTags.isNotEmpty()) {
+            // --- TAG FILTER (scrolls horizontally) ---
+            if (allTags.isNotEmpty()) {
                 TagFilterBar(
-                    todasAsTags = todasAsTags,
+                    allTags = allTags,
                     selectedTags = selectedTags,
                     onTagSelect = onTagSelect,
                 )
@@ -188,16 +188,16 @@ fun RecipeListContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             StatusFilterBar(
-                statusSelecionado = statusSelecionado,
-                onStatusSelect = { novoStatus -> onStatusChanged(novoStatus) },
-                opcoes = todosOsStatus,
+                selectedStatus = selectedStatus,
+                onStatusSelect = { newStatus -> onStatusChanged(newStatus) },
+                options = allStatuses,
                 isFavoriteFilter = isFavoriteFilter,
                 onFavoriteToggle = onFavoriteToggle
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // --- A LISTA DE RECEITAS OU LOADING ---
+            // --- THE RECIPE LIST OR LOADING STATE ---
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -206,29 +206,42 @@ fun RecipeListContent(
                     isLoading -> {
                         CircularProgressIndicator()
                     }
-                    receitas.isEmpty() && searchQuery.isBlank() && selectedTags.isEmpty() -> {
+                    recipes.isEmpty() && searchQuery.isBlank() && selectedTags.isEmpty() -> {
                         EmptyState(
                             emoji = "🧁",
                             message = stringResource(R.string.nenhuma_receita_notion)
                         )
                     }
-                    receitas.isEmpty() -> {
+                    recipes.isEmpty() -> {
                         EmptyState(
                             emoji = "🔍",
                             message = stringResource(R.string.nenhuma_receita_filtros)
                         )
                     }
                     else -> {
+                        val listState = rememberLazyListState()
+
+                        // Force the list back to the top every time this screen is entered.
+                        // Without this, if a new recipe just got prepended to the front (e.g.
+                        // right after saving one), Compose's key-based scroll anchoring keeps
+                        // whatever was already on screen exactly where it was — which means the
+                        // brand new recipe lands above the visible area instead of front and
+                        // center, and looks like it "isn't there" until scrolled up to manually.
+                        LaunchedEffect(Unit) {
+                            listState.scrollToItem(0)
+                        }
+
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(receitas, key = { it.id ?: it.titulo }) { receita ->
+                            items(recipes, key = { it.id ?: it.title }) { recipe ->
                                 RecipeCard(
-                                    receita = receita,
-                                    onClick = { onRecipeClick(receita) },
-                                    onTagClick = onTagSelect, // Passa o callback para baixo
+                                    recipe = recipe,
+                                    onClick = { onRecipeClick(recipe) },
+                                    onTagClick = onTagSelect, // Passes the callback down
                                     selectedTags = selectedTags,
                                 )
                             }
@@ -243,62 +256,62 @@ fun RecipeListContent(
 @Preview(showBackground = true)
 @Composable
 fun RecipeListScreenPreview() {
-    val mockReceitas = listOf(
-        Receita(
-            titulo = "Moqueca de Banana da Terra com Peixe Branco",
-            tempoPreparo = "45 minutos",
-            ingredientes = emptyList(),
-            passos = emptyList(),
+    val mockRecipes = listOf(
+        Recipe(
+            title = "Moqueca de Banana da Terra com Peixe Branco",
+            prepTime = "45 minutos",
+            ingredients = emptyList(),
+            steps = emptyList(),
             tags = listOf("Pescetariano", "Panela", "Prato Principal"),
-            favorito = false,
+            favorite = false,
             id = "0",
             status = "Não feito"
         ),
-        Receita(
-            titulo = "Dadinhos de Tapioca",
-            tempoPreparo = "1 hora (inclui geladeira)",
-            ingredientes = emptyList(),
-            passos = emptyList(),
+        Recipe(
+            title = "Dadinhos de Tapioca",
+            prepTime = "1 hora (inclui geladeira)",
+            ingredients = emptyList(),
+            steps = emptyList(),
             tags = listOf("Aperitivo", "Comida de Tabuleiro", "Airfryer"),
-            favorito = true,
+            favorite = true,
             id = "0",
             status = "Não feito"
         ),
-        Receita(
-            titulo = "Pizza Babalou",
-            tempoPreparo = "30 minutos",
-            ingredientes = emptyList(),
-            passos = emptyList(),
+        Recipe(
+            title = "Pizza Babalou",
+            prepTime = "30 minutos",
+            ingredients = emptyList(),
+            steps = emptyList(),
             tags = listOf("Forno", "Jantar", "Fácil", "Vegetariano"),
-            favorito = false,
+            favorite = false,
             id = "0",
             status = "Não feito"
         )
     )
 
-    // 1. Criamos uma lista estática com as tags para o Preview renderizar o carrossel
+    // 1. Static list of tags so the Preview can render the carousel
     val mockTags = listOf("Airfryer", "Aperitivo", "Fácil", "Forno", "Jantar", "Panela", "Pescetariano", "Prato Principal", "Vegetariano")
 
     MaterialTheme {
         RecipeListContent(
-            receitas = mockReceitas,
+            recipes = mockRecipes,
             isLoading = false,
 
-            // 2. Preenchemos os novos parâmetros estáticos
-            todasAsTags = mockTags,
-            searchQuery = "", // Deixe vazio para ver o placeholder, ou escreva "Pizza" para ver o texto digitado
-            selectedTags = emptySet(), // Deixe null, ou coloque "Forno" para ver o botão colorido indicando seleção
+            // 2. Fill in the new static parameters
+            allTags = mockTags,
+            searchQuery = "", // Leave empty to see the placeholder, or write "Pizza" to see typed text
+            selectedTags = emptySet(), // Leave empty, or add "Forno" to see the colored selected button
 
-            // 3. Funções vazias, pois no Preview os cliques não precisam fazer nada
+            // 3. Empty functions, since clicks in the Preview don't need to do anything
             onSearchQueryChange = {},
             onTagSelect = {},
 
             onRecipeClick = {},
             onFavoriteToggle = {},
             isFavoriteFilter = false,
-            statusSelecionado = null, // Passe o estado
+            selectedStatus = null,
             onStatusChanged = {},
-            todosOsStatus = listOf("Feito", "Não feito", "Quero fazer"),
+            allStatuses = listOf("Feito", "Não feito", "Quero fazer"),
             onClearAllTags = {}
         )
     }
