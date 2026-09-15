@@ -22,12 +22,12 @@ import androidx.compose.ui.unit.dp
 import com.bakeitoff.R
 import com.bakeitoff.ui.theme.LightPink
 
-@OptIn(ExperimentalMaterial3Api::class) // Caso seu projeto ainda exija para o FilterChip
+@OptIn(ExperimentalMaterial3Api::class) // In case your project still requires this for FilterChip
 @Composable
 fun StatusFilterBar(
-    statusSelecionado: String?,
+    selectedStatus: String?,
     onStatusSelect: (String?) -> Unit,
-    opcoes: List<String>, // Esta lista vem do seu ViewModel
+    options: List<String>, // This list comes from the ViewModel
     isFavoriteFilter: Boolean,
     onFavoriteToggle: () -> Unit
 ) {
@@ -54,24 +54,24 @@ fun StatusFilterBar(
             )
         }
 
-        // Renderizamos apenas a lista dinâmica de status
-        items(opcoes) { opcao ->
-            // Proteção extra caso "Todos" venha escrito do Notion por engano
-            if (opcao != "Todos") {
-                val isSelected = (statusSelecionado == opcao)
+        // Only render the dynamic list of statuses
+        items(options) { option ->
+            // Extra guard in case "Todos" comes back from Notion by mistake
+            if (option != "Todos") {
+                val isSelected = (selectedStatus == option)
 
                 FilterChip(
                     selected = isSelected,
                     onClick = {
-                        // Se o chip clicado já for o selecionado, manda null para limpar o filtro.
-                        // Caso contrário, seleciona a nova opção normalmente.
+                        // If the clicked chip is already the selected one, send null to clear the filter.
+                        // Otherwise, select the new option normally.
                         if (isSelected) {
                             onStatusSelect(null)
                         } else {
-                            onStatusSelect(opcao)
+                            onStatusSelect(option)
                         }
                     },
-                    label = { Text(opcao) }
+                    label = { Text(option) }
                 )
             }
         }

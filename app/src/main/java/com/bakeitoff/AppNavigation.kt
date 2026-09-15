@@ -11,40 +11,40 @@ import com.bakeitoff.viewmodel.RecipeViewModel
 
 @Composable
 fun BakeItOffApp(viewModel: RecipeViewModel) {
-    // Esse é o "motor" que controla as viagens entre as telas
+    // This is the "engine" that controls navigation between screens
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = "home") {
 
-        // Rota 1: Tela Inicial (Extração)
+        // Route 1: Home screen (extraction)
         composable("home") {
-            // Supondo que a sua tela inicial se chame RecipeScreen ou InitialScreen
+            // Assuming the home screen is called RecipeScreen or InitialScreen
             RecipeScreen(
                 viewModel = viewModel,
-                // Passamos uma função que diz ao botão como ir para a lista
+                // Pass a function that tells the button how to go to the list
                 onNavigateToList = {
-                    navController.navigate("lista_receitas") {
+                    navController.navigate("recipe_list") {
                         launchSingleTop = true
                     }
                 }
             )
         }
 
-        // Rota 2: Tela do Caderno do Notion
-        composable("lista_receitas") {
+        // Route 2: Notion notebook screen
+        composable("recipe_list") {
             RecipeListScreen(
                 viewModel = viewModel,
-                onRecipeClick = { receitaSelecionada ->
-                    // 1. Avisamos ao ViewModel qual receita foi clicada
-                    viewModel.selecionarReceita(receitaSelecionada)
-                    // 2. Navegamos para a tela de detalhes
-                    navController.navigate("detalhes_receita")
+                onRecipeClick = { clickedRecipe ->
+                    // 1. Tell the ViewModel which recipe was clicked
+                    viewModel.selectRecipe(clickedRecipe)
+                    // 2. Navigate to the detail screen
+                    navController.navigate("recipe_details")
                 }
             )
         }
 
-        // Rota 3: A Nova Tela de Detalhes!
-        composable("detalhes_receita") {
+        // Route 3: The new detail screen!
+        composable("recipe_details") {
             RecipeDetailScreen(
                 viewModel = viewModel,
                 onBackClick = {

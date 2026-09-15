@@ -7,30 +7,30 @@ import org.junit.Test
 class ApiKeyManagerTest {
 
     @Test
-    fun `toggleKey gira entre as chaves e volta pra primeira depois da ultima`() {
+    fun `toggleKey rotates through the keys and wraps back to the first after the last`() {
         val manager = ApiKeyManager()
-        val nomes = mutableListOf(manager.getActiveKeyName())
+        val names = mutableListOf(manager.getActiveKeyName())
 
         repeat(manager.sizeKeys) {
             manager.toggleKey()
-            nomes.add(manager.getActiveKeyName())
+            names.add(manager.getActiveKeyName())
         }
 
-        // Depois de girar sizeKeys vezes, volta pro nome inicial.
-        assertEquals(nomes.first(), nomes.last())
-        // E não fica preso no mesmo nome o tempo todo.
-        assertNotEquals(nomes[0], nomes[1])
+        // After rotating sizeKeys times, it's back to the initial name.
+        assertEquals(names.first(), names.last())
+        // And it doesn't get stuck on the same name the whole time.
+        assertNotEquals(names[0], names[1])
     }
 
     @Test
-    fun `instancias diferentes nao compartilham estado`() {
+    fun `different instances do not share state`() {
         val a = ApiKeyManager()
         val b = ApiKeyManager()
 
         a.toggleKey()
 
-        // Girar uma instância não deve afetar a outra — é exatamente o que
-        // o singleton antigo impedia de testar (estado global compartilhado).
+        // Rotating one instance shouldn't affect the other — exactly what the
+        // old singleton made impossible to test (shared global state).
         assertNotEquals(a.getActiveKeyName(), b.getActiveKeyName())
     }
 }

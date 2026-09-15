@@ -1,9 +1,9 @@
 package com.bakeitoff.data.notion
 
 import android.util.Log
-import com.bakeitoff.data.model.DicasComentario
-import com.bakeitoff.data.model.Ingrediente
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.RecipeTip
+import com.bakeitoff.data.model.Ingredient
+import com.bakeitoff.data.model.Recipe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,13 +19,13 @@ import java.util.concurrent.TimeUnit
 class NotionRepository(private val integrationToken: String, private val databaseId: String) {
 
     val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS) // Tempo para conectar
-        // 60s de leitura: com muitas receitas (paginado de 100 em 100, cada uma com
-        // ingredientes/passos/dicas em texto longo), uma página pode legitimamente
-        // demorar mais que 30s numa conexão mais lenta — o timeout estourando no meio
-        // da paginação cortava a lista silenciosamente antes de existir aviso de erro.
+        .connectTimeout(30, TimeUnit.SECONDS) // Time to connect
+        // 60s read timeout: with many recipes (paginated 100 at a time, each with
+        // long ingredients/steps/tips text), a single page can legitimately take
+        // longer than 30s on a slower connection — the timeout firing mid-pagination
+        // used to silently cut off the list before any error was shown.
         .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)   // Tempo para enviar os dados
+        .writeTimeout(30, TimeUnit.SECONDS)   // Time to send the data
         .build()
     private val api = Retrofit.Builder()
         .baseUrl("https://api.notion.com/")
@@ -34,98 +34,98 @@ class NotionRepository(private val integrationToken: String, private val databas
         .build()
         .create(NotionApiService::class.java)
 
-    private fun fatiarParaNotion(texto: String): List<TextObject> {
-        if (texto.isEmpty()) return listOf(TextObject(TextContent("")))
+    private fun sliceForNotion(text: String): List<TextObject> {
+        if (text.isEmpty()) return listOf(TextObject(TextContent("")))
 
-        // Fatiamos em 1999 para garantir que fique abaixo do limite de 2000 da API
-        return texto.chunked(1999).map { pedaco ->
-            TextObject(TextContent(pedaco))
+        // Chunk at 1999 to stay under the API's 2000-char limit
+        return text.chunked(1999).map { chunk ->
+            TextObject(TextContent(chunk))
         }
     }
 
-    // Recebe diretamente a sua classe Receita que já vem bonitinha do Gemini.
-    // Retorna o id da página no Notion (nova ou existente) em caso de sucesso, ou
-    // null se falhar — quem chama usa esse id pra atualizar a lista local na hora,
-    // sem depender de uma nova busca (a API de query do Notion pode demorar alguns
-    // segundos pra "enxergar" uma página recém-criada).
-    suspend fun saveRecipe(receita: Receita, linkOrigem: String?): String? {
+    // Takes the Recipe class as-is, already nicely shaped by Gemini.
+    // Returns the id of the Notion page (new or existing) on success, or
+    // null on failure — the caller uses that id to update the local list right
+    // away, without depending on a new fetch (Notion's query API can take a few
+    // seconds to "see" a page that was just created).
+    suspend fun saveRecipe(recipe: Recipe, originLink: String?): String? {
         try {
 
             // ==========================================
-            // PARTE 1: Preparando textos para as Colunas (Propriedades)
+            // PART 1: Preparing text for the columns (properties)
             // ==========================================
-            val ingredientesString = receita.ingredientes
-                .groupBy { it.secao }
-                .entries.joinToString("\n\n") { (secao, listaDeIngredientes) ->
-                    val tituloSecao = if (!secao.isNullOrEmpty()) "**$secao:**\n" else ""
-                    val itens = listaDeIngredientes.joinToString("\n") { ing ->
+            val ingredientsString = recipe.ingredients
+                .groupBy { it.section }
+                .entries.joinToString("\n\n") { (section, ingredientList) ->
+                    val sectionTitle = if (!section.isNullOrEmpty()) "**$section:**\n" else ""
+                    val items = ingredientList.joinToString("\n") { ing ->
 
-                        // Reconstrói a frase se a IA separou, ou usa a pronta se veio do Notion
-                        val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
+                        // Rebuilds the phrase if the AI split it, or uses it as-is if it came from Notion
+                        val ingredientText = if (ing.quantity.isNullOrBlank() && ing.unit.isNullOrBlank()) {
                             ing.item
                         } else {
-                            // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
-                            // e pode deixar isso null quando a IA não especifica quantidade/unidade.
-                            val q = (ing.quantidade as String?)?.trim() ?: ""
-                            val u = (ing.unidade as String?)?.trim() ?: ""
-                            val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
+                            // Deliberately cast to nullable: Gson ignores Kotlin's non-null type
+                            // and can leave this null when the AI doesn't specify quantity/unit.
+                            val q = (ing.quantity as String?)?.trim() ?: ""
+                            val u = (ing.unit as String?)?.trim() ?: ""
+                            val connector = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
 
-                            "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
+                            "$q $u$connector${ing.item}".replace(Regex("\\s+"), " ").trim()
                         }
 
-                        "• $textoIngrediente"
+                        "• $ingredientText"
                     }
-                    tituloSecao + itens
+                    sectionTitle + items
                 }
 
-            val passosString = receita.passos.mapIndexed { index, passo ->
-                "${index + 1}. $passo"
+            val stepsString = recipe.steps.mapIndexed { index, step ->
+                "${index + 1}. $step"
             }.joinToString("\n")
 
-            val dicasString = receita.dicas_video.joinToString("\n") { dica ->
-                val prefixo = when (dica.fonte) {
+            val tipsString = recipe.videoTips.joinToString("\n") { tip ->
+                val prefix = when (tip.source) {
                     "IA" -> "[IA]"
                     "Pessoal" -> "[Pessoal]"
                     else -> "[Vídeo]"
                 }
-                "$prefixo ${dica.texto}"
+                "$prefix ${tip.text}"
             }
 
-            val linkFinal = linkOrigem?.takeIf { it.isNotBlank() } ?: receita.link
+            val finalLink = originLink?.takeIf { it.isNotBlank() } ?: recipe.link
 
             val properties = RecipeProperties(
-                nome = NotionTitle(listOf(TextObject(TextContent(receita.titulo)))),
-                tempoPreparo = NotionRichText(listOf(TextObject(TextContent(receita.tempoPreparo)))),
-                ingredientes = NotionRichText(fatiarParaNotion(ingredientesString)),
-                preparo = NotionRichText(fatiarParaNotion(passosString)),
-                tags = NotionMultiSelect(receita.tags.map { SelectOption(it) }),
-                favorito = NotionCheckbox(receita.favorito), // Preserva estado atual
-                // Cast pra nullable de propósito: a IA nunca inclui "Status" no JSON extraído,
-                // e o Gson ignora o valor padrão do Kotlin, deixando status null nesse ponto.
-                status = NotionStatus(StatusOption((receita.status as String?) ?: "Não feito")), // Preserva estado atual
-                link = if (!linkFinal.isNullOrBlank()) NotionUrl(linkFinal) else null,
-                dicas = NotionRichText(fatiarParaNotion(dicasString))
+                name = NotionTitle(listOf(TextObject(TextContent(recipe.title)))),
+                prepTime = NotionRichText(listOf(TextObject(TextContent(recipe.prepTime)))),
+                ingredients = NotionRichText(sliceForNotion(ingredientsString)),
+                instructions = NotionRichText(sliceForNotion(stepsString)),
+                tags = NotionMultiSelect(recipe.tags.map { SelectOption(it) }),
+                favorite = NotionCheckbox(recipe.favorite), // Preserves current state
+                // Deliberately cast to nullable: the AI never includes "Status" in the
+                // extracted JSON, and Gson ignores Kotlin's default value, leaving status null here.
+                status = NotionStatus(StatusOption((recipe.status as String?) ?: "Não feito")), // Preserves current state
+                link = if (!finalLink.isNullOrBlank()) NotionUrl(finalLink) else null,
+                tips = NotionRichText(sliceForNotion(tipsString))
             )
 
             // ==========================================
-            // PARTE 2: Verifica se é CRIAÇÃO ou ATUALIZAÇÃO
+            // PART 2: Check whether this is a CREATE or an UPDATE
             // ==========================================
 
-            if (receita.id.isNullOrBlank()) {
+            if (recipe.id.isNullOrBlank()) {
                 val pageBlocks = mutableListOf<NotionBlock>()
 
                 pageBlocks.add(Heading2Block(NotionRichText(listOf(TextObject(TextContent("Ingredientes"))))))
 
-                val ingredientesAgrupados = receita.ingredientes.groupBy { it.secao }
-                ingredientesAgrupados.forEach { (secao, lista) ->
-                    if (!secao.isNullOrEmpty()) {
+                val groupedIngredients = recipe.ingredients.groupBy { it.section }
+                groupedIngredients.forEach { (section, list) ->
+                    if (!section.isNullOrEmpty()) {
                         pageBlocks.add(
                             Heading3Block(
                                 NotionRichText(
                                     listOf(
                                         TextObject(
                                             TextContent(
-                                                secao
+                                                section
                                             )
                                         )
                                     )
@@ -133,16 +133,16 @@ class NotionRepository(private val integrationToken: String, private val databas
                             )
                         )
                     }
-                    lista.forEach { ing ->
-                        val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
+                    list.forEach { ing ->
+                        val ingredientText = if (ing.quantity.isNullOrBlank() && ing.unit.isNullOrBlank()) {
                             ing.item
                         } else {
-                            // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
-                            // e pode deixar isso null quando a IA não especifica quantidade/unidade.
-                            val q = (ing.quantidade as String?)?.trim() ?: ""
-                            val u = (ing.unidade as String?)?.trim() ?: ""
-                            val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
-                            "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
+                            // Deliberately cast to nullable: Gson ignores Kotlin's non-null type
+                            // and can leave this null when the AI doesn't specify quantity/unit.
+                            val q = (ing.quantity as String?)?.trim() ?: ""
+                            val u = (ing.unit as String?)?.trim() ?: ""
+                            val connector = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
+                            "$q $u$connector${ing.item}".replace(Regex("\\s+"), " ").trim()
                         }
 
                         pageBlocks.add(
@@ -150,7 +150,7 @@ class NotionRepository(private val integrationToken: String, private val databas
                                 NotionRichText(
                                     listOf(
                                         TextObject(
-                                            TextContent(textoIngrediente)
+                                            TextContent(ingredientText)
                                         )
                                     )
                                 )
@@ -159,11 +159,11 @@ class NotionRepository(private val integrationToken: String, private val databas
                     }
                 }
 
-                if (receita.dicas_video.isNotEmpty()) {
+                if (recipe.videoTips.isNotEmpty()) {
                     pageBlocks.add(Heading2Block(NotionRichText(listOf(TextObject(TextContent("Dicas e Comentários"))))))
 
-                    receita.dicas_video.forEach { dica ->
-                        val icone = when (dica.fonte) {
+                    recipe.videoTips.forEach { tip ->
+                        val icon = when (tip.source) {
                             "IA" -> "💡 "
                             "Pessoal" -> "📝 "
                             else -> "📹 "
@@ -173,7 +173,7 @@ class NotionRepository(private val integrationToken: String, private val databas
                                 NotionRichText(
                                     listOf(
                                         TextObject(
-                                            TextContent(icone + dica.texto)
+                                            TextContent(icon + tip.text)
                                         )
                                     )
                                 )
@@ -184,14 +184,14 @@ class NotionRepository(private val integrationToken: String, private val databas
 
                 pageBlocks.add(Heading2Block(NotionRichText(listOf(TextObject(TextContent("Modo de Preparo"))))))
 
-                receita.passos.forEach { passo ->
+                recipe.steps.forEach { step ->
                     pageBlocks.add(
                         NumberedListBlock(
                             NotionRichText(
                                 listOf(
                                     TextObject(
                                         TextContent(
-                                            passo
+                                            step
                                         )
                                     )
                                 )
@@ -201,7 +201,7 @@ class NotionRepository(private val integrationToken: String, private val databas
                 }
 
                 // ==========================================
-                // PARTE 3: Disparo da Requisição Final
+                // PART 3: Fire the final request
                 // ==========================================
                 val request = NotionCreatePageRequest(
                     parent = NotionDatabaseParent(databaseId),
@@ -211,31 +211,31 @@ class NotionRepository(private val integrationToken: String, private val databas
 
                 val response = api.addRecipe("Bearer $integrationToken", request)
 
-                val criada = response.body()
-                if (response.isSuccessful && criada != null) {
+                val created = response.body()
+                if (response.isSuccessful && created != null) {
                     Log.d(
                         "BakeItOffDebug",
                         "Sucesso Híbrido! Colunas preenchidas e página desenhada."
                     )
-                    return criada.id
+                    return created.id
                 } else {
                     Log.e("BakeItOffDebug", "Erro do Notion: ${response.errorBody()?.string()}")
                     return null
                 }
             } else {
-                // ➔ É UMA RECEITA EXISTENTE (PATCH)
+                // ➔ This is an EXISTING recipe (PATCH)
                 val request = UpdateFullPageRequest(properties = properties)
 
                 val response = api.updateFullPage(
                     token = "Bearer $integrationToken",
                     version = "2022-06-28",
-                    pageId = receita.id,
+                    pageId = recipe.id,
                     request = request
                 )
 
                 return if (response.isSuccessful) {
                     Log.d("BakeItOffDebug", "Receita ATUALIZADA com sucesso no Notion!")
-                    receita.id
+                    recipe.id
                 } else {
                     Log.e("BakeItOffDebug", "Erro ao atualizar: ${response.errorBody()?.string()}")
                     null
@@ -250,49 +250,49 @@ class NotionRepository(private val integrationToken: String, private val databas
         }
     }
 
-    // Deixa a exceção propagar em vez de engolir e emitir lista vazia — assim quem
-    // coleta esse Flow (o ViewModel) sabe que a busca falhou e pode avisar o usuário,
-    // em vez de mostrar silenciosamente "nenhuma receita" como se a lista realmente
-    // estivesse vazia.
-    suspend fun buscarReceitas(): Flow<List<Receita>> = flow {
-        val todasReceitas = mutableListOf<Receita>()
-        var cursorAtual: String? = null
-        var temMaisPaginas = true
+    // Lets the exception propagate instead of swallowing it and emitting an empty
+    // list — that way whoever collects this Flow (the ViewModel) knows the fetch
+    // failed and can warn the user, instead of silently showing "no recipes" as if
+    // the list were genuinely empty.
+    suspend fun fetchRecipes(): Flow<List<Recipe>> = flow {
+        val allRecipes = mutableListOf<Recipe>()
+        var currentCursor: String? = null
+        var hasMorePages = true
 
-        while (temMaisPaginas) {
-            val requestBody = QueryDatabaseRequest(start_cursor = cursorAtual)
+        while (hasMorePages) {
+            val requestBody = QueryDatabaseRequest(start_cursor = currentCursor)
             val response = api.queryDatabase("Bearer $integrationToken", databaseId, requestBody)
 
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
-                temMaisPaginas = body.has_more
-                cursorAtual = body.next_cursor
+                hasMorePages = body.has_more
+                currentCursor = body.next_cursor
 
-                val receitasDaPagina = body.results.map { page -> NotionRecipeMapper.toReceita(page) }
+                val pageRecipes = body.results.map { page -> NotionRecipeMapper.toRecipe(page) }
 
-                todasReceitas.addAll(receitasDaPagina)
-                emit(todasReceitas.toList())
+                allRecipes.addAll(pageRecipes)
+                emit(allRecipes.toList())
 
             } else {
-                val erro = response.errorBody()?.string()
-                Log.e("BakeItOffDebug", "Erro ao buscar do Notion: $erro")
+                val error = response.errorBody()?.string()
+                Log.e("BakeItOffDebug", "Erro ao buscar do Notion: $error")
                 throw IOException("Notion respondeu ${response.code()} ao buscar receitas")
             }
         }
     }.flowOn(Dispatchers.IO)
 
-    suspend fun updateFavorito(pageId: String, favorito: Boolean): Boolean {
+    suspend fun updateFavorite(pageId: String, favorite: Boolean): Boolean {
         return try {
-            // Monta a estrutura que o Notion exige
+            // Builds the structure the Notion API requires
             val request = UpdatePageRequest(
                 properties = UpdateProperties(
-                    favorito = CheckboxProperty(checkbox = favorito)
+                    favorite = CheckboxProperty(checkbox = favorite)
                 )
             )
 
             val response = api.updatePageProperties(
                 token = "Bearer $integrationToken",
-                version = "2022-06-28", // <--- Adicione o valor da versão aqui
+                version = "2022-06-28",
                 pageId = pageId,
                 request = request
             )
@@ -310,18 +310,18 @@ class NotionRepository(private val integrationToken: String, private val databas
         }
     }
 
-    suspend fun updateStatus(pageId: String, novoStatus: String): Boolean {
+    suspend fun updateStatus(pageId: String, newStatus: String): Boolean {
         return try {
-            // Monta a estrutura que o Notion exige
+            // Builds the structure the Notion API requires
             val request = UpdatePageRequest(
                 properties = UpdateProperties(
-                    status = StatusProperty(StatusName(novoStatus))
+                    status = StatusProperty(StatusName(newStatus))
                 )
             )
 
             val response = api.updatePageProperties(
                 token = "Bearer $integrationToken",
-                version = "2022-06-28", // <--- Adicione o valor da versão aqui
+                version = "2022-06-28",
                 pageId = pageId,
                 request = request
             )
@@ -344,7 +344,7 @@ class NotionRepository(private val integrationToken: String, private val databas
                 token = "Bearer $integrationToken",
                 version = "2022-06-28",
                 pageId = pageId,
-                request = ArchivePageRequest() // Manda archived = true por padrão
+                request = ArchivePageRequest() // Sends archived = true by default
             )
 
             if (response.isSuccessful) {

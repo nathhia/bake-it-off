@@ -22,7 +22,7 @@ class GeminiFileUploader(
     private val apiKeyManager: ApiKeyManager
 ) {
 
-    // Aumentamos o timeout porque uploads de vídeo levam mais tempo que requisições de texto
+    // Increased timeout because video uploads take longer than text requests
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
@@ -32,7 +32,7 @@ class GeminiFileUploader(
     suspend fun isVideoReady(fileUri: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val currentKey = apiKeyManager.getApiKey()
-            // Faz uma chamada GET simples, que não consome cota de geração de texto
+            // Makes a simple GET call, which doesn't consume text-generation quota
             val request = Request.Builder()
                 .url("$fileUri?key=$currentKey")
                 .get()
@@ -63,7 +63,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
 
     while (attempts < maxAttempts && coroutineContext.isActive) {
         try {
-            // 1. Pega a chave DENTRO do loop, garantindo que ela se atualize após um erro
+            // 1. Get the key INSIDE the loop, so it picks up updates after an error
             val currentKey = apiKeyManager.getApiKey()
             val contentResolver = context.contentResolver
             val mimeType = contentResolver.getType(videoUri) ?: "video/mp4"
@@ -86,7 +86,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
 
             Log.d("BakeItOffDebug", "Iniciando upload (Tentativa ${attempts + 1}/$maxAttempts) com a chave: ${apiKeyManager.getActiveKeyName()}")
 
-            // 2. Executa a chamada
+            // 2. Executes the call
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
@@ -100,28 +100,28 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
                     val code = response.code
                     val errorBody = response.body?.string() ?: ""
 
-                    attempts++ // Falhou, queima uma tentativa
+                    attempts++ // Failed, burn one attempt
 
                     when (code) {
-                        429 -> { // Erro de Cota ou Crédito Esgotado
+                        429 -> { // Quota exceeded / out of credit
                             quotaAttempts++
                             if (quotaAttempts > maxQuotaAttempts) {
                                 Log.e("BakeItOffDebug", "Limite de cota excedido no upload. Abortando.")
                                 return@withContext null
                             }
-                            val tempoEspera = (quotaAttempts * 2000L)
+                            val waitTime = (quotaAttempts * 2000L)
                             Log.w("BakeItOffDebug", "Cota estourada no Upload (429)! Trocando chave e tentando novamente...")
-                            apiKeyManager.toggleKey() // Gira a chave globalmente
-                            delay(tempoEspera)
+                            apiKeyManager.toggleKey() // Rotates the key globally
+                            delay(waitTime)
                         }
-                        503 -> { // Servidor do Google sobrecarregado
+                        503 -> { // Google's server is overloaded
                             quotaAttempts++
                             if (quotaAttempts > maxQuotaAttempts) return@withContext null
 
                             Log.w("BakeItOffDebug", "Servidor sobrecarregado no Upload (503). Aguardando 10s...")
                             delay(10000)
                         }
-                        else -> { // Outros erros não recuperáveis (ex: arquivo muito grande, 400 Bad Request)
+                        else -> { // Other, non-recoverable errors (e.g. file too large, 400 Bad Request)
                             Log.e("BakeItOffDebug", "Erro fatal no upload: $code - $errorBody")
                             return@withContext null
                         }
@@ -131,7 +131,7 @@ suspend fun uploadVideo(videoUri: Uri): String? = withContext(Dispatchers.IO) {
         } catch (e: Exception) {
             Log.e("BakeItOffDebug", "Exceção de rede no upload: ${e.message}", e)
             attempts++
-            delay(2000) // Respiro curto em caso de timeout de soquete ou oscilação de Wi-Fi
+            delay(2000) // Short breather in case of a socket timeout or Wi-Fi hiccup
         }
     }
 

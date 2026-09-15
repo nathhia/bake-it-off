@@ -7,11 +7,11 @@ import org.junit.Test
 
 class NotionRecipeMapperTest {
 
-    private fun textProp(vararg textos: String) = NotionPropertyRichText(textos.map { TextObject(TextContent(it)) })
+    private fun textProp(vararg texts: String) = NotionPropertyRichText(texts.map { TextObject(TextContent(it)) })
 
     @Test
-    fun `parseIngredientes agrupa por secao e ignora linhas vazias`() {
-        val texto = """
+    fun `parseIngredients groups by section and ignores blank lines`() {
+        val text = """
             **Massa:**
             • 2 xícaras de farinha
             • 1 ovo
@@ -20,106 +20,106 @@ class NotionRecipeMapperTest {
             • 200 g de doce de leite
         """.trimIndent()
 
-        val resultado = NotionRecipeMapper.parseIngredientes(texto)
+        val result = NotionRecipeMapper.parseIngredients(text)
 
-        assertEquals(3, resultado.size)
-        assertEquals("Massa", resultado[0].secao)
-        assertEquals("2 xícaras de farinha", resultado[0].item)
-        assertEquals("Massa", resultado[1].secao)
-        assertEquals("Recheio", resultado[2].secao)
-        assertEquals("200 g de doce de leite", resultado[2].item)
+        assertEquals(3, result.size)
+        assertEquals("Massa", result[0].section)
+        assertEquals("2 xícaras de farinha", result[0].item)
+        assertEquals("Massa", result[1].section)
+        assertEquals("Recheio", result[2].section)
+        assertEquals("200 g de doce de leite", result[2].item)
     }
 
     @Test
-    fun `parseIngredientes sem secao usa string vazia`() {
-        val resultado = NotionRecipeMapper.parseIngredientes("• sal a gosto\n• pimenta a gosto")
+    fun `parseIngredients without a section uses an empty string`() {
+        val result = NotionRecipeMapper.parseIngredients("• sal a gosto\n• pimenta a gosto")
 
-        assertEquals(2, resultado.size)
-        assertTrue(resultado.all { it.secao == "" })
+        assertEquals(2, result.size)
+        assertTrue(result.all { it.section == "" })
     }
 
     @Test
-    fun `parsePassos remove numeracao e mantem ordem`() {
-        val texto = "1. Bata os ovos\n2) Adicione o açúcar\n3- Leve ao forno"
+    fun `parseSteps strips numbering and keeps order`() {
+        val text = "1. Bata os ovos\n2) Adicione o açúcar\n3- Leve ao forno"
 
-        val resultado = NotionRecipeMapper.parsePassos(texto)
+        val result = NotionRecipeMapper.parseSteps(text)
 
-        assertEquals(listOf("Bata os ovos", "Adicione o açúcar", "Leve ao forno"), resultado)
+        assertEquals(listOf("Bata os ovos", "Adicione o açúcar", "Leve ao forno"), result)
     }
 
     @Test
-    fun `parseDicas identifica a fonte pelo prefixo`() {
-        val texto = "[IA] Guarde na geladeira\n[Pessoal] Fica melhor gelado\n[Vídeo] Ponto do doce de leite"
+    fun `parseTips identifies the source from the prefix`() {
+        val text = "[IA] Guarde na geladeira\n[Pessoal] Fica melhor gelado\n[Vídeo] Ponto do doce de leite"
 
-        val resultado = NotionRecipeMapper.parseDicas(texto)
+        val result = NotionRecipeMapper.parseTips(text)
 
-        assertEquals(3, resultado.size)
-        assertEquals("IA", resultado[0].fonte)
-        assertTrue(resultado[0].enriquecida)
-        assertEquals("Pessoal", resultado[1].fonte)
-        assertFalse(resultado[1].enriquecida)
-        assertEquals("Vídeo", resultado[2].fonte)
-        assertEquals("Ponto do doce de leite", resultado[2].texto)
+        assertEquals(3, result.size)
+        assertEquals("IA", result[0].source)
+        assertTrue(result[0].enriched)
+        assertEquals("Pessoal", result[1].source)
+        assertFalse(result[1].enriched)
+        assertEquals("Vídeo", result[2].source)
+        assertEquals("Ponto do doce de leite", result[2].text)
     }
 
     @Test
-    fun `toReceita mapeia todas as propriedades presentes`() {
+    fun `toRecipe maps every property that is present`() {
         val page = NotionPageResponse(
             id = "abc123",
             properties = NotionPageProperties(
-                nome = NotionPropertyTitle(listOf(TextObject(TextContent("Bolo de Cenoura")))),
-                tempoPreparo = textProp("40 minutos"),
+                name = NotionPropertyTitle(listOf(TextObject(TextContent("Bolo de Cenoura")))),
+                prepTime = textProp("40 minutos"),
                 tags = NotionPropertyMultiSelect(listOf(SelectOption("Bolo"), SelectOption("Forno"))),
-                ingredientes = textProp("• 2 cenouras"),
-                passos = textProp("1. Bata tudo"),
-                favorito = NotionPropertyCheckbox(true),
+                ingredients = textProp("• 2 cenouras"),
+                instructions = textProp("1. Bata tudo"),
+                favorite = NotionPropertyCheckbox(true),
                 status = StatusProperty(StatusName("Feito")),
                 link = UrlProperty("https://exemplo.com/receita"),
-                dicas = textProp("[IA] Sirva morno")
+                tips = textProp("[IA] Sirva morno")
             )
         )
 
-        val receita = NotionRecipeMapper.toReceita(page)
+        val recipe = NotionRecipeMapper.toRecipe(page)
 
-        assertEquals("abc123", receita.id)
-        assertEquals("Bolo de Cenoura", receita.titulo)
-        assertEquals("40 minutos", receita.tempoPreparo)
-        assertEquals(listOf("Bolo", "Forno"), receita.tags)
-        assertEquals(1, receita.ingredientes.size)
-        assertEquals(listOf("Bata tudo"), receita.passos)
-        assertTrue(receita.favorito)
-        assertEquals("Feito", receita.status)
-        assertEquals("https://exemplo.com/receita", receita.link)
-        assertEquals(1, receita.dicas_video.size)
+        assertEquals("abc123", recipe.id)
+        assertEquals("Bolo de Cenoura", recipe.title)
+        assertEquals("40 minutos", recipe.prepTime)
+        assertEquals(listOf("Bolo", "Forno"), recipe.tags)
+        assertEquals(1, recipe.ingredients.size)
+        assertEquals(listOf("Bata tudo"), recipe.steps)
+        assertTrue(recipe.favorite)
+        assertEquals("Feito", recipe.status)
+        assertEquals("https://exemplo.com/receita", recipe.link)
+        assertEquals(1, recipe.videoTips.size)
     }
 
     @Test
-    fun `toReceita usa valores padrao quando propriedades vem nulas`() {
+    fun `toRecipe uses default values when properties come back null`() {
         val page = NotionPageResponse(
             id = "sem-props",
             properties = NotionPageProperties(
-                nome = null,
-                tempoPreparo = null,
+                name = null,
+                prepTime = null,
                 tags = null,
-                ingredientes = null,
-                passos = null,
-                favorito = null,
+                ingredients = null,
+                instructions = null,
+                favorite = null,
                 status = null,
                 link = null,
-                dicas = null
+                tips = null
             )
         )
 
-        val receita = NotionRecipeMapper.toReceita(page)
+        val recipe = NotionRecipeMapper.toRecipe(page)
 
-        assertEquals("Sem Título", receita.titulo)
-        assertEquals("--", receita.tempoPreparo)
-        assertEquals(emptyList<String>(), receita.tags)
-        assertEquals(emptyList<Any>(), receita.ingredientes)
-        assertEquals(emptyList<String>(), receita.passos)
-        assertFalse(receita.favorito)
-        assertEquals("Não feito", receita.status)
-        assertEquals(null, receita.link)
-        assertEquals(emptyList<Any>(), receita.dicas_video)
+        assertEquals("Sem Título", recipe.title)
+        assertEquals("--", recipe.prepTime)
+        assertEquals(emptyList<String>(), recipe.tags)
+        assertEquals(emptyList<Any>(), recipe.ingredients)
+        assertEquals(emptyList<String>(), recipe.steps)
+        assertFalse(recipe.favorite)
+        assertEquals("Não feito", recipe.status)
+        assertEquals(null, recipe.link)
+        assertEquals(emptyList<Any>(), recipe.videoTips)
     }
 }

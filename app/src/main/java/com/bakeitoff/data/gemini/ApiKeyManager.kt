@@ -5,10 +5,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Gira entre as chaves de API do Gemini de cada colaborador quando uma bate
- * cota (429). Uma instância por app (injetada via MainActivity) em vez de
- * singleton global, pra dar pra testar código que depende dela com uma
- * instância isolada em vez de estado global compartilhado entre testes.
+ * Rotates between each contributor's Gemini API key when one hits its quota
+ * (429). One instance per app (injected via MainActivity) instead of a global
+ * singleton, so code that depends on it can be tested with an isolated
+ * instance instead of sharing global state across tests.
  */
 class ApiKeyManager {
     private val api_key_nathaff = BuildConfig.GEMINI_API_KEY_NATHAFF
@@ -30,14 +30,14 @@ class ApiKeyManager {
 
     private val keyNames = listOf("Nathaff", "Nathhia", "Anderson", "Felipe")
 
-    // Índice da chave atual
+    // Index of the current key
     private var currentIndex = 0
 
     fun getApiKey(): String = keys[currentIndex]
 
     @Synchronized
     fun toggleKey() {
-        // Incrementa o índice e volta para 0 se chegar ao final da lista
+        // Increments the index and wraps back to 0 at the end of the list
         currentIndex = (currentIndex + 1) % keys.size
         _onKeyChanged.tryEmit(getActiveKeyName())
     }

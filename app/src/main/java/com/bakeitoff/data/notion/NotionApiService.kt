@@ -12,13 +12,13 @@ interface NotionApiService {
 
     @Headers(
         "Content-Type: application/json",
-        "Notion-Version: 2022-06-28" // Versão atual obrigatória da API
+        "Notion-Version: 2022-06-28" // Current required API version
     )
     @POST("v1/pages")
     suspend fun addRecipe(
         @Header("Authorization") bearerToken: String,
         @Body request: NotionCreatePageRequest
-    ): Response<CreatedPageResponse> // Precisamos do id da página criada
+    ): Response<CreatedPageResponse> // We need the id of the created page
 
     @Headers(
         "Notion-Version: 2022-06-28",

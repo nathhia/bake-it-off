@@ -14,16 +14,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bakeitoff.R
-import com.bakeitoff.data.model.DicasComentario
+import com.bakeitoff.data.model.RecipeTip
 
 /**
- * Usado tanto na pré-visualização de uma receita recém-extraída (fonte só será
- * "IA" ou "Video") quanto na tela de detalhes de uma receita salva, onde o
- * usuário já pode ter adicionado observações próprias ("Pessoal").
+ * Used both in the preview of a just-extracted recipe (source will only ever be
+ * "IA" or "Video") and on the detail screen of a saved recipe, where the user
+ * may have already added their own notes ("Pessoal").
  */
 @Composable
-fun DicasComentarioSection(dicas: List<DicasComentario>) {
-    if (dicas.isEmpty()) return
+fun RecipeTipsSection(tips: List<RecipeTip>) {
+    if (tips.isEmpty()) return
 
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
@@ -33,10 +33,10 @@ fun DicasComentarioSection(dicas: List<DicasComentario>) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        dicas.forEach { dica ->
-            // Fallback: bancos antigos do Notion salvaram "Comunidade" antes de essa opção
-            // virar "Pessoal" na tela de edição — tratamos os dois como a mesma origem.
-            val (corFundo, rotulo) = when (dica.fonte) {
+        tips.forEach { tip ->
+            // Fallback: older Notion databases saved "Comunidade" before that option
+            // became "Pessoal" on the edit screen — we treat both as the same source.
+            val (backgroundColor, label) = when (tip.source) {
                 "IA" -> Pair(Color(0xFFF3E5F5), stringResource(R.string.dica_extra_ia))
                 "Pessoal", "Comunidade" -> Pair(Color(0xFFE3F2FD), stringResource(R.string.minha_observacao))
                 else -> Pair(CardDefaults.cardColors().containerColor, stringResource(R.string.dica_do_video))
@@ -46,16 +46,16 @@ fun DicasComentarioSection(dicas: List<DicasComentario>) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(containerColor = corFundo)
+                colors = CardDefaults.cardColors(containerColor = backgroundColor)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = dica.texto,
+                        text = tip.text,
                         style = MaterialTheme.typography.bodyMedium
                     )
 
                     Text(
-                        text = rotulo,
+                        text = label,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 8.dp),

@@ -1,96 +1,96 @@
 package com.bakeitoff.viewmodel
 
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Recipe
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RecipeFilterTest {
 
-    private fun receita(
-        titulo: String,
+    private fun recipe(
+        title: String,
         tags: List<String> = emptyList(),
-        favorito: Boolean = false,
+        favorite: Boolean = false,
         status: String = "Não feito"
-    ) = Receita(
-        id = titulo,
-        titulo = titulo,
-        tempoPreparo = "10 minutos",
-        ingredientes = emptyList(),
-        passos = emptyList(),
+    ) = Recipe(
+        id = title,
+        title = title,
+        prepTime = "10 minutos",
+        ingredients = emptyList(),
+        steps = emptyList(),
         tags = tags,
-        favorito = favorito,
+        favorite = favorite,
         status = status
     )
 
-    private val bolo = receita("Bolo de Cenoura", tags = listOf("Bolo", "Forno"), favorito = true, status = "Feito")
-    private val panqueca = receita("Panqueca Não-Fritada", tags = listOf("Café da Manhã"), status = "Quero fazer")
-    private val torta = receita("Torta de Limão", tags = listOf("Sobremesa", "Geladeira"))
-    private val todas = listOf(bolo, panqueca, torta)
+    private val bolo = recipe("Bolo de Cenoura", tags = listOf("Bolo", "Forno"), favorite = true, status = "Feito")
+    private val panqueca = recipe("Panqueca Não-Fritada", tags = listOf("Café da Manhã"), status = "Quero fazer")
+    private val torta = recipe("Torta de Limão", tags = listOf("Sobremesa", "Geladeira"))
+    private val all = listOf(bolo, panqueca, torta)
 
     @Test
-    fun `sem filtro nenhum retorna tudo`() {
-        val resultado = RecipeFilter.apply(todas, query = "", selectedTags = emptySet(), favoriteOnly = false, status = null)
-        assertEquals(todas, resultado)
+    fun `no filters returns everything`() {
+        val result = RecipeFilter.apply(all, query = "", selectedTags = emptySet(), favoriteOnly = false, status = null)
+        assertEquals(all, result)
     }
 
     @Test
-    fun `busca por titulo eh case-insensitive`() {
-        val resultado = RecipeFilter.apply(todas, query = "cenoura", selectedTags = emptySet(), favoriteOnly = false, status = null)
-        assertEquals(listOf(bolo), resultado)
+    fun `title search is case-insensitive`() {
+        val result = RecipeFilter.apply(all, query = "cenoura", selectedTags = emptySet(), favoriteOnly = false, status = null)
+        assertEquals(listOf(bolo), result)
     }
 
     @Test
-    fun `busca ignora acentos e hifen`() {
-        // "nao fritada" (sem acento, sem hífen) precisa achar "Não-Fritada"
-        val resultado = RecipeFilter.apply(todas, query = "nao fritada", selectedTags = emptySet(), favoriteOnly = false, status = null)
-        assertEquals(listOf(panqueca), resultado)
+    fun `search ignores accents and hyphens`() {
+        // "nao fritada" (no accent, no hyphen) needs to match "Não-Fritada"
+        val result = RecipeFilter.apply(all, query = "nao fritada", selectedTags = emptySet(), favoriteOnly = false, status = null)
+        assertEquals(listOf(panqueca), result)
     }
 
     @Test
-    fun `busca com varios termos exige todos presentes (AND) no titulo ou tags`() {
-        val resultado = RecipeFilter.apply(todas, query = "torta geladeira", selectedTags = emptySet(), favoriteOnly = false, status = null)
-        assertEquals(listOf(torta), resultado)
+    fun `search with multiple terms requires all present (AND) in title or tags`() {
+        val result = RecipeFilter.apply(all, query = "torta geladeira", selectedTags = emptySet(), favoriteOnly = false, status = null)
+        assertEquals(listOf(torta), result)
     }
 
     @Test
-    fun `busca tambem acha por tag`() {
-        val resultado = RecipeFilter.apply(todas, query = "sobremesa", selectedTags = emptySet(), favoriteOnly = false, status = null)
-        assertEquals(listOf(torta), resultado)
+    fun `search also matches by tag`() {
+        val result = RecipeFilter.apply(all, query = "sobremesa", selectedTags = emptySet(), favoriteOnly = false, status = null)
+        assertEquals(listOf(torta), result)
     }
 
     @Test
-    fun `filtro de tags exige todas as tags selecionadas (AND)`() {
-        val resultado = RecipeFilter.apply(todas, query = "", selectedTags = setOf("Sobremesa", "Geladeira"), favoriteOnly = false, status = null)
-        assertEquals(listOf(torta), resultado)
+    fun `tag filter requires all selected tags (AND)`() {
+        val result = RecipeFilter.apply(all, query = "", selectedTags = setOf("Sobremesa", "Geladeira"), favoriteOnly = false, status = null)
+        assertEquals(listOf(torta), result)
     }
 
     @Test
-    fun `filtro de tags nao acha se receita so tem uma das tags`() {
-        val resultado = RecipeFilter.apply(todas, query = "", selectedTags = setOf("Sobremesa", "Forno"), favoriteOnly = false, status = null)
-        assertEquals(emptyList<Receita>(), resultado)
+    fun `tag filter does not match if recipe only has one of the tags`() {
+        val result = RecipeFilter.apply(all, query = "", selectedTags = setOf("Sobremesa", "Forno"), favoriteOnly = false, status = null)
+        assertEquals(emptyList<Recipe>(), result)
     }
 
     @Test
-    fun `filtro de favoritos`() {
-        val resultado = RecipeFilter.apply(todas, query = "", selectedTags = emptySet(), favoriteOnly = true, status = null)
-        assertEquals(listOf(bolo), resultado)
+    fun `favorite filter`() {
+        val result = RecipeFilter.apply(all, query = "", selectedTags = emptySet(), favoriteOnly = true, status = null)
+        assertEquals(listOf(bolo), result)
     }
 
     @Test
-    fun `filtro de status`() {
-        val resultado = RecipeFilter.apply(todas, query = "", selectedTags = emptySet(), favoriteOnly = false, status = "Quero fazer")
-        assertEquals(listOf(panqueca), resultado)
+    fun `status filter`() {
+        val result = RecipeFilter.apply(all, query = "", selectedTags = emptySet(), favoriteOnly = false, status = "Quero fazer")
+        assertEquals(listOf(panqueca), result)
     }
 
     @Test
-    fun `filtros se combinam (AND entre busca, tags, favorito e status)`() {
-        val resultado = RecipeFilter.apply(
-            todas,
+    fun `filters combine (AND between search, tags, favorite and status)`() {
+        val result = RecipeFilter.apply(
+            all,
             query = "bolo",
             selectedTags = setOf("Forno"),
             favoriteOnly = true,
             status = "Feito"
         )
-        assertEquals(listOf(bolo), resultado)
+        assertEquals(listOf(bolo), result)
     }
 }

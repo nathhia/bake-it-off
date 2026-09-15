@@ -33,9 +33,9 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun BakeItOffTheme(
-    // Tema sempre claro e com cor fixa (BrandPrimary, em Color.kt) — nada de
-    // seguir o modo escuro do sistema nem o dynamic color (que muda por
-    // aparelho/papel de parede). A cor não deve variar entre celulares.
+    // Always a light theme with a fixed color (BrandPrimary, in Color.kt) — no
+    // following the system's dark mode or dynamic color (which varies per
+    // device/wallpaper). The color must not vary between phones.
     darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit

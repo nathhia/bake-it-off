@@ -57,8 +57,8 @@ class MediaPreparer {
         try {
             val file = File(uri.path ?: return)
             if (file.exists()) {
-                val deletado = file.delete()
-                if (deletado) {
+                val deleted = file.delete()
+                if (deleted) {
                     Log.d("BakeItOffDebug", "Vídeo temporário deletado com sucesso: ${file.absolutePath}")
                 }
             }

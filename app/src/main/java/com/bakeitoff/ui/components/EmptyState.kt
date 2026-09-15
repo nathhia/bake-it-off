@@ -14,8 +14,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Estado vazio padronizado (emoji grande + mensagem) usado nas listas do app,
- * pra não deixar telas sem resultado com só um texto cinza solto.
+ * Standardized empty state (big emoji + message) used across the app's lists,
+ * so a screen with no results isn't left with just a loose gray text line.
  */
 @Composable
 fun EmptyState(emoji: String, message: String) {

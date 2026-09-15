@@ -1,7 +1,7 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.Ingrediente
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Ingredient
+import com.bakeitoff.data.model.Recipe
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -41,29 +41,29 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bakeitoff.R
-import com.bakeitoff.ui.components.DicasComentarioSection
+import com.bakeitoff.ui.components.RecipeTipsSection
 import com.bakeitoff.ui.components.StatusSelector
 import com.bakeitoff.viewmodel.RecipeViewModel
 import kotlinx.coroutines.launch
 
 // ==========================================
-// 1. O "Gerente" (Stateful)
+// 1. The "Manager" (stateful)
 // ==========================================
 @Composable
 fun RecipeDetailScreen(
     viewModel: RecipeViewModel,
     onBackClick: () -> Unit
 ) {
-    val receita by viewModel.receitaSelecionada.collectAsState()
+    val recipe by viewModel.selectedRecipe.collectAsState()
     val isSaving by viewModel.isSavingToNotion
     val coroutineScope = rememberCoroutineScope()
 
-    // Roda só quando a tela aparece (não a cada mudança de receita, senão duplicaria
-    // o onBackClick() já disparado pelo BackHandler/exclusão ao zerar a seleção).
-    // Se a receita já chegar nula aqui (ex: restauração de processo), volta para a tela
-    // anterior em vez de deixar a tela em branco sem saída.
+    // Only runs when the screen first appears (not on every recipe change, otherwise it would
+    // duplicate the onBackClick() already fired by the BackHandler/deletion when clearing the selection).
+    // If the recipe is already null here (e.g. process restoration), go back to the previous
+    // screen instead of leaving a blank screen with no way out.
     LaunchedEffect(Unit) {
-        if (receita == null) {
+        if (recipe == null) {
             onBackClick()
         }
     }
@@ -73,16 +73,16 @@ fun RecipeDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
 
-    if (receita == null) {
+    if (recipe == null) {
         return
     }
 
     BackHandler {
         if (isEditing) {
-            isEditing = false // Apenas cancela a edição
+            isEditing = false // Just cancel the edit
         } else {
-            viewModel.limparReceitaSelecionada()
-            onBackClick() // Volta para a lista
+            viewModel.clearSelectedRecipe()
+            onBackClick() // Back to the list
         }
     }
 
@@ -90,22 +90,22 @@ fun RecipeDetailScreen(
         AlertDialog(
             onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
             title = { Text(stringResource(R.string.deletar_receita_titulo)) },
-            text = { Text(stringResource(R.string.deletar_receita_mensagem, receita?.titulo ?: "")) },
+            text = { Text(stringResource(R.string.deletar_receita_mensagem, recipe?.title ?: "")) },
             confirmButton = {
                 TextButton(
                     enabled = !isDeleting,
                     onClick = {
-                        val receitaParaDeletar = receita!!
+                        val recipeToDelete = recipe!!
                         coroutineScope.launch {
                             isDeleting = true
-                            // Só sai da tela se a exclusão realmente deu certo — antes disso,
-                            // o app saía imediatamente e, se a exclusão falhasse, a tela de
-                            // detalhes de uma receita já apagada da memória ficava em branco.
-                            val sucesso = viewModel.deletarReceita(receitaParaDeletar)
+                            // Only leaves the screen if the deletion actually succeeded — before this,
+                            // the app left immediately, and if the deletion failed, the detail screen
+                            // for a recipe already erased from memory was left blank.
+                            val success = viewModel.deleteRecipe(recipeToDelete)
                             isDeleting = false
                             showDeleteDialog = false
-                            if (sucesso) {
-                                onBackClick() // Volta para a lista principal
+                            if (success) {
+                                onBackClick() // Back to the main list
                             }
                         }
                     }
@@ -126,17 +126,17 @@ fun RecipeDetailScreen(
     }
 
     if (isEditing) {
-        // --- MODO EDIÇÃO ---
+        // --- EDIT MODE ---
         RecipeEditDetailScreen(
-            receitaOriginal = receita!!,
-            onSave = { receitaEditada ->
-                // Só sai do modo de edição se o salvamento no Notion realmente confirmar
-                // sucesso — antes disso, a tela fechava e assumia sucesso na hora, perdendo
-                // a edição silenciosamente se a conexão caísse nesse meio-tempo.
+            originalRecipe = recipe!!,
+            onSave = { editedRecipe ->
+                // Only leaves edit mode if saving to Notion actually confirms success —
+                // before this, the screen closed and assumed success right away, silently
+                // losing the edit if the connection dropped in the meantime.
                 if (!isSaving) {
                     coroutineScope.launch {
-                        val sucesso = viewModel.salvarReceitaNoNotion(receitaEditada)
-                        if (sucesso) {
+                        val success = viewModel.saveRecipeToNotion(editedRecipe)
+                        if (success) {
                             isEditing = false
                         }
                     }
@@ -148,14 +148,14 @@ fun RecipeDetailScreen(
         )
     } else {
         RecipeDetailContent(
-            receita = receita!!,
-            onBack = { // Corrigido de onBackClick para onBack
-                viewModel.limparReceitaSelecionada()
+            recipe = recipe!!,
+            onBack = {
+                viewModel.clearSelectedRecipe()
                 onBackClick()
             },
             onFavoriteToggle = {
-                // Chama a função que criamos no ViewModel
-                viewModel.toggleFavorito(receita!!)
+                // Calls the function we created in the ViewModel
+                viewModel.toggleFavorite(recipe!!)
             },
             onEdit = {
                 isEditing = true
@@ -163,20 +163,20 @@ fun RecipeDetailScreen(
             onDelete = {
                 showDeleteDialog = true
             },
-            onStatusChange = { novoStatus ->
-                viewModel.atualizarStatus(receita!!, novoStatus)
+            onStatusChange = { newStatus ->
+                viewModel.updateStatus(recipe!!, newStatus)
             },
         )
     }
 }
 
 // ==========================================
-// 2. O "Pintor" (Stateless)
+// 2. The "Painter" (stateless)
 // ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeDetailContent(
-    receita: Receita,
+    recipe: Recipe,
     onFavoriteToggle: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -194,7 +194,7 @@ fun RecipeDetailContent(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = receita.titulo,
+                        text = recipe.title,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         style = if (isCollapsed) {
@@ -210,16 +210,16 @@ fun RecipeDetailContent(
                     }
                 },
                 actions = {
-                    // 1. Botão de Favoritar (sempre visível)
+                    // 1. Favorite button (always visible)
                     IconButton(onClick = onFavoriteToggle) {
                         Icon(
-                            imageVector = if (receita.favorito) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            imageVector = if (recipe.favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = stringResource(R.string.favoritar),
-                            tint = if (receita.favorito) Color(0xFFE91E63) else Color.Gray
+                            tint = if (recipe.favorite) Color(0xFFE91E63) else Color.Gray
                         )
                     }
 
-                    // 2. Menu de Ações Futuras (Editar/Deletar)
+                    // 2. Future actions menu (edit/delete)
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.opcoes))
                     }
@@ -254,11 +254,11 @@ fun RecipeDetailContent(
                 .padding(paddingValues),
             contentPadding = PaddingValues(16.dp)
         ) {
-            // Título
+            // Title
             item {
-                // Tempo de preparo e Tags
+                // Prep time and tags
                 Text(
-                    text = stringResource(R.string.tempo_formatado, receita.tempoPreparo),
+                    text = stringResource(R.string.tempo_formatado, recipe.prepTime),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -267,10 +267,10 @@ fun RecipeDetailContent(
                 @OptIn(ExperimentalLayoutApi::class)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp), // Dá um respiro se for pra linha de baixo
+                    verticalArrangement = Arrangement.spacedBy(4.dp), // Gives some breathing room if it wraps to the next line
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    receita.tags.forEach { tag ->
+                    recipe.tags.forEach { tag ->
                         AssistChip(
                             onClick = { },
                             label = { Text(tag) }
@@ -280,14 +280,14 @@ fun RecipeDetailContent(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 StatusSelector(
-                    statusAtual = receita.status,
+                    currentStatus = recipe.status,
                     onStatusChange = onStatusChange
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Ingredientes
+            // Ingredients
             item {
                 Text(
                     text = stringResource(R.string.ingredientes),
@@ -298,17 +298,17 @@ fun RecipeDetailContent(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // 1. Agrupa os ingredientes pela seção
-            val ingredientesAgrupados = receita.ingredientes.groupBy { it.secao ?: "" }
+            // 1. Group the ingredients by section
+            val groupedIngredients = recipe.ingredients.groupBy { it.section ?: "" }
 
-            // 2. Desenha cada grupo na tela
-            ingredientesAgrupados.forEach { (secao, lista) ->
+            // 2. Draw each group on screen
+            groupedIngredients.forEach { (section, list) ->
 
-                // Se o grupo tem um nome, desenha o subtítulo
-                if (secao.isNotEmpty()) {
+                // If the group has a name, draw the subtitle
+                if (section.isNotEmpty()) {
                     item {
                         Text(
-                            text = secao,
+                            text = section,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -317,8 +317,8 @@ fun RecipeDetailContent(
                     }
                 }
 
-                // Desenha os ingredientes desta seção
-                items(lista) { ingrediente ->
+                // Draw the ingredients in this section
+                items(list) { ingredient ->
                     Row(
                         modifier = Modifier.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.Top
@@ -329,7 +329,7 @@ fun RecipeDetailContent(
                             modifier = Modifier.padding(end = 8.dp)
                         )
                         Text(
-                            text = ingrediente.item.trim(),
+                            text = ingredient.item.trim(),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
@@ -337,7 +337,7 @@ fun RecipeDetailContent(
             }
 
 
-            // Modo de Preparo
+            // Instructions
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -348,12 +348,12 @@ fun RecipeDetailContent(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            itemsIndexed(receita.passos) { index, passo ->
+            itemsIndexed(recipe.steps) { index, step ->
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    // Círculo com o número do passo
+                    // Circle with the step number
                     Box(
                         modifier = Modifier
                             .size(28.dp)
@@ -370,7 +370,7 @@ fun RecipeDetailContent(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = passo,
+                        text = step,
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.align(Alignment.CenterVertically)
                     )
@@ -378,7 +378,7 @@ fun RecipeDetailContent(
             }
 
             item {
-                if (!receita.link.isNullOrBlank()) {
+                if (!recipe.link.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = stringResource(R.string.link_da_receita),
@@ -387,12 +387,12 @@ fun RecipeDetailContent(
                             textDecoration = TextDecoration.Underline,
                             fontSize = 16.sp
                         ),
-                        // Centralizando o texto
+                        // Centers the text
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(receita.link))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(recipe.link))
                                 context.startActivity(intent)
                             }
                             .padding(vertical = 8.dp)
@@ -403,50 +403,49 @@ fun RecipeDetailContent(
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             item {
-                DicasComentarioSection(dicas = receita.dicas_video)
+                RecipeTipsSection(tips = recipe.videoTips)
             }
         }
     }
 }
 
 // ==========================================
-// 3. PREVIEW PARA O ANDROID STUDIO
+// 3. PREVIEW FOR ANDROID STUDIO
 // ==========================================
 @Preview(showBackground = true)
 @Composable
 fun RecipeDetailScreenPreview() {
-    val mockReceita = Receita(
-        titulo = "Pizza Babalou",
-        tempoPreparo = "30 minutos",
-        // dica = "Espalhe bem o mascarpone antes de colocar os outros queijos. A base cremosa faz toda a diferença nesta receita!",
-        ingredientes = listOf(
-            Ingrediente(
-                quantidade = "1",
-                unidade = "disco",
+    val mockRecipe = Recipe(
+        title = "Pizza Babalou",
+        prepTime = "30 minutos",
+        ingredients = listOf(
+            Ingredient(
+                quantity = "1",
+                unit = "disco",
                 item = "massa de pizza de fermentação natural"
             ),
-            Ingrediente(
-                quantidade = "150",
-                unidade = "g",
+            Ingredient(
+                quantity = "150",
+                unit = "g",
                 item = "Mascarpone (substituindo o molho branco tradicional)"
             ),
-            Ingrediente(
-                quantidade = "100",
-                unidade = "g",
+            Ingredient(
+                quantity = "100",
+                unit = "g",
                 item = "queijo Muçarela ralado"
             ),
-            Ingrediente(
-                quantidade = "A gosto",
-                unidade = "",
+            Ingredient(
+                quantity = "A gosto",
+                unit = "",
                 item = "Folhas de manjericão fresco"
             ),
-            Ingrediente(
-                quantidade = "1",
-                unidade = "fio",
+            Ingredient(
+                quantity = "1",
+                unit = "fio",
                 item = "Azeite trufado para finalizar"
             )
         ),
-        passos = listOf(
+        steps = listOf(
             "Pré-aqueça o forno na temperatura máxima (idealmente acima de 250ºC) com uma pedra de pizza dentro, se tiver.",
             "Abra o disco de massa. Com a ajuda de uma colher, espalhe o mascarpone uniformemente sobre a base, deixando as bordas livres.",
             "Cubra a camada de mascarpone com a muçarela ralada.",
@@ -454,14 +453,14 @@ fun RecipeDetailScreenPreview() {
             "Retire do forno, adicione as folhas de manjericão e um fio de azeite trufado. Sirva imediatamente."
         ),
         tags = listOf("Forno", "Jantar", "Fácil", "Vegetariano"),
-        favorito = false,
+        favorite = false,
         id = "0",
         status = "Não feito"
     )
 
     MaterialTheme {
         RecipeDetailContent(
-            receita = mockReceita,
+            recipe = mockRecipe,
             onFavoriteToggle = {},
             onEdit = {},
             onDelete = {},

@@ -1,6 +1,6 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Recipe
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -68,7 +68,7 @@ import com.bakeitoff.ui.components.ErrorScreen
 import com.bakeitoff.ui.components.HeaderSection
 import com.bakeitoff.ui.components.LoadingScreen
 import com.bakeitoff.ui.components.MediaSelectorSection
-import com.bakeitoff.ui.components.DicasComentarioSection
+import com.bakeitoff.ui.components.RecipeTipsSection
 import com.bakeitoff.viewmodel.RecipeUiState
 import com.bakeitoff.viewmodel.RecipeViewModel
 import androidx.compose.ui.text.style.TextAlign
@@ -82,20 +82,20 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var linkTexto by rememberSaveable { mutableStateOf("") }
-    var instrucaoExtra by rememberSaveable { mutableStateOf("") }
+    var linkText by rememberSaveable { mutableStateOf("") }
+    var extraInstruction by rememberSaveable { mutableStateOf("") }
     var savedUrisStrings by rememberSaveable { mutableStateOf(emptyList<String>()) }
 
     LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { mensagem ->
-            Toast.makeText(context, mensagem, Toast.LENGTH_SHORT).show()
+        viewModel.uiEvent.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     LaunchedEffect(uiState) {
         if (uiState is RecipeUiState.Success) {
-            linkTexto = ""
-            instrucaoExtra = ""
+            linkText = ""
+            extraInstruction = ""
             savedUrisStrings = emptyList()
         }
     }
@@ -108,21 +108,21 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
             when (val state = uiState) {
                 is RecipeUiState.Uploading -> {
-                    // Sem isso, não tinha como desistir e voltar enquanto a mídia está subindo.
+                    // Without this, there was no way to back out while the media was uploading.
                     BackHandler { viewModel.cancelProcessing() }
 
-                    // Observamos os estados de compressão apenas quando estamos no Uploading
+                    // Only observe the compression states while we're in the Uploading state
                     val isCompressing by viewModel.isCompressing.collectAsStateWithLifecycle()
                     val progress by viewModel.compressionProgress.collectAsStateWithLifecycle()
 
                     if (isCompressing) {
-                        // Tela de progresso da compressão do vídeo
+                        // Video compression progress screen
                         Column(
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            // Divide por 100f porque o Compose exige um valor entre 0.0 e 1.0
+                            // Divide by 100f because Compose expects a value between 0.0 and 1.0
                             CircularProgressIndicator(progress = { progress / 100f })
                             Spacer(Modifier.height(16.dp))
                             Text(stringResource(R.string.otimizando_video, progress.toInt()))
@@ -133,7 +133,7 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                             )
                         }
                     } else {
-                        // Quando não está comprimindo (ou já terminou), mostra a mensagem normal de upload
+                        // When not compressing (or already done), show the regular upload message
                         LoadingScreen(stringResource(R.string.enviando_midias))
                     }
                 }
@@ -145,20 +145,20 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
                     ErrorScreen(state.message, onDismiss = { viewModel.resetToInitial() })
                 }
                 is RecipeUiState.Success -> {
-                    ExtractedRecipePreview(state.receita, viewModel)
+                    ExtractedRecipePreview(state.recipe, viewModel)
                 }
                 else -> InitialScreen(
-                    linkTexto = linkTexto,
-                    onLinkChange = { linkTexto = it },
-                    instrucaoExtra = instrucaoExtra,
-                    onInstrucaoChange = { instrucaoExtra = it },
+                    linkText = linkText,
+                    onLinkChange = { linkText = it },
+                    extraInstruction = extraInstruction,
+                    onInstructionChange = { extraInstruction = it },
                     savedUrisStrings = savedUrisStrings,
                     onUrisChange = { savedUrisStrings = it },
-                    onMediaSelected = { uris, link, promptExtra ->
-                        viewModel.processMediaUris(uris, context.applicationContext, link, promptExtra)
+                    onMediaSelected = { uris, link, extraPrompt ->
+                        viewModel.processMediaUris(uris, link, extraPrompt)
                     },
-                    onTextOnlySubmit = { texto ->
-                        viewModel.criarReceitaPorTexto(texto)
+                    onTextOnlySubmit = { text ->
+                        viewModel.createRecipeFromText(text)
                     },
                     onNavigateToList = onNavigateToList,
                     onLogoLongPress = { viewModel.toggleApiKey() }
@@ -170,52 +170,52 @@ fun RecipeScreen(viewModel: RecipeViewModel, onNavigateToList: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
+fun ExtractedRecipePreview(recipe: Recipe, viewModel: RecipeViewModel) {
     val isSaving by viewModel.isSavingToNotion
     val coroutineScope = rememberCoroutineScope()
 
-    var tagsEditaveis = remember { mutableStateListOf<String>().apply { addAll(receita.tags) } }
-    var novaTag by remember { mutableStateOf("") }
+    var editableTags = remember { mutableStateListOf<String>().apply { addAll(recipe.tags) } }
+    var newTag by remember { mutableStateOf("") }
 
     BackHandler {
-        viewModel.resetToInitial() // Volta para o estado inicial (InitialScreen)
+        viewModel.resetToInitial() // Back to the initial state (InitialScreen)
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Título e Tempo
+        // 1. Title and time
         item {
-            Text(text = receita.titulo, style = MaterialTheme.typography.headlineMedium)
+            Text(text = recipe.title, style = MaterialTheme.typography.headlineMedium)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Timer, contentDescription = null, tint = Color.Gray)
                 Spacer(Modifier.width(4.dp))
-                Text(text = receita.tempoPreparo, color = Color.Gray)
+                Text(text = recipe.prepTime, color = Color.Gray)
             }
         }
 
-        // 2. Tags (Chips)
+        // 2. Tags (chips)
         item {
             Text(stringResource(R.string.tags), style = MaterialTheme.typography.titleLarge)
 
-            // Renderiza as tags atuais com um botão de "X" para remover
+            // Renders the current tags with an "X" button to remove them
             FlowRow(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                tagsEditaveis.forEach { tag ->
+                editableTags.forEach { tag ->
                     key(tag) {
                         InputChip(
                             selected = true,
-                            onClick = { }, // Não faz nada ao clicar no corpo
+                            onClick = { }, // Does nothing when the body is clicked
                             label = { Text(tag) },
                             trailingIcon = {
                                 IconButton(
                                     onClick = {
-                                        // Remove a tag da lista
-                                        tagsEditaveis.remove(tag)
+                                        // Removes the tag from the list
+                                        editableTags.remove(tag)
                                     },
                                     modifier = Modifier.size(16.dp)
                                 ) {
@@ -227,20 +227,20 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
                 }
             }
 
-            // Campo de texto para adicionar uma nova tag
+            // Text field to add a new tag
             OutlinedTextField(
-                value = novaTag,
-                onValueChange = { novaTag = it },
+                value = newTag,
+                onValueChange = { newTag = it },
                 label = { Text(stringResource(R.string.adicionar_nova_tag)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
                     IconButton(onClick = {
-                        val tagLimpa = novaTag.trim()
-                        // Só adiciona se não for vazio e se a tag já não existir
-                        if (tagLimpa.isNotEmpty() && !tagsEditaveis.contains(tagLimpa)) {
-                            tagsEditaveis.add(tagLimpa)
-                            novaTag = "" // Limpa o campo após adicionar
+                        val cleanTag = newTag.trim()
+                        // Only add it if it's not empty and the tag doesn't already exist
+                        if (cleanTag.isNotEmpty() && !editableTags.contains(cleanTag)) {
+                            editableTags.add(cleanTag)
+                            newTag = "" // Clears the field after adding
                         }
                     }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.adicionar_tag))
@@ -251,12 +251,12 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 3. Ingredientes
+        // 3. Ingredients
         item {
             Text(
                 text = stringResource(R.string.ingredientes),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 8.dp) // Um respiro entre o título e o Card
+                modifier = Modifier.padding(bottom = 8.dp) // A little breathing room between the title and the card
             )
 
             Card(
@@ -264,41 +264,41 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(Modifier.padding(12.dp)) {
-                    // 1. Agrupa os ingredientes pela seção
-                    val ingredientesAgrupados = receita.ingredientes.groupBy { it.secao }
+                    // 1. Group the ingredients by section
+                    val groupedIngredients = recipe.ingredients.groupBy { it.section }
 
-                    ingredientesAgrupados.forEach { (secao, lista) ->
-                        if (!secao.isNullOrEmpty()) {
+                    groupedIngredients.forEach { (section, list) ->
+                        if (!section.isNullOrEmpty()) {
                             Text(
-                                text = secao,
+                                text = section,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary, // Dá um destaque na cor base do seu app
+                                color = MaterialTheme.colorScheme.primary, // Highlights it with the app's base color
                                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                             )
                         }
 
-                        // 3. Desenha os itens
-                        lista.forEach { ing ->
+                        // 3. Draw the items
+                        list.forEach { ing ->
                             Row(
                                 modifier = Modifier
-                                    .padding(vertical = 4.dp) // Primeiro aplica o espaçamento vertical
-                                    .padding(start = if (secao.isNullOrEmpty()) 0.dp else 8.dp) // Depois aplica o recuo lateral
+                                    .padding(vertical = 4.dp) // First apply the vertical spacing
+                                    .padding(start = if (section.isNullOrEmpty()) 0.dp else 8.dp) // Then apply the side indent
                             ) {
                                 Text("• ", fontWeight = FontWeight.Bold)
 
-                                val textoIngrediente = if (ing.quantidade.isNullOrBlank() && ing.unidade.isNullOrBlank()) {
+                                val ingredientText = if (ing.quantity.isNullOrBlank() && ing.unit.isNullOrBlank()) {
                                     ing.item
                                 } else {
-                                    // Cast pra nullable de propósito: o Gson ignora o tipo não-nulo do Kotlin
-                                    // e pode deixar isso null quando a IA não especifica quantidade/unidade.
-                                    val q = (ing.quantidade as String?)?.trim() ?: ""
-                                    val u = (ing.unidade as String?)?.trim() ?: ""
-                                    val ligacao = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
-                                    "$q $u$ligacao${ing.item}".replace(Regex("\\s+"), " ").trim()
+                                    // Deliberately cast to nullable: Gson ignores Kotlin's non-null type
+                                    // and can leave this null when the AI doesn't specify quantity/unit.
+                                    val q = (ing.quantity as String?)?.trim() ?: ""
+                                    val u = (ing.unit as String?)?.trim() ?: ""
+                                    val connector = if (u.isNotEmpty() || q.any { it.isLetter() }) " de " else " "
+                                    "$q $u$connector${ing.item}".replace(Regex("\\s+"), " ").trim()
                                 }
 
-                                Text(textoIngrediente)
+                                Text(ingredientText)
                             }
                         }
                     }
@@ -306,39 +306,39 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
             }
         }
 
-        // 4. Modo de Preparo
+        // 4. Instructions
         item {
             Text(stringResource(R.string.passo_a_passo), style = MaterialTheme.typography.titleLarge)
         }
 
-        itemsIndexed(receita.passos) { index, passo ->
+        itemsIndexed(recipe.steps) { index, step ->
             Row(Modifier.padding(vertical = 4.dp)) {
                 Text("${index + 1}. ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Text(passo)
+                Text(step)
             }
         }
 
         item {
-            DicasComentarioSection(dicas = receita.dicas_video)
+            RecipeTipsSection(tips = recipe.videoTips)
         }
 
-        // 5. Botão Salvar no Notion
+        // 5. Save to Notion button
         item {
             Button(
                 onClick = {
-                    // Cast pra nullable de propósito: a IA nunca inclui "Status" no JSON extraído,
-                    // e o Gson ignora o valor padrão do Kotlin, deixando status null nesse ponto.
-                    val statusAtual = (receita.status as String?) ?: "Não feito"
-                    val receitaAtualizada = receita.copy(tags = tagsEditaveis, status = statusAtual)
+                    // Deliberately cast to nullable: the AI never includes "Status" in the
+                    // extracted JSON, and Gson ignores Kotlin's default value, leaving status null here.
+                    val currentStatus = (recipe.status as String?) ?: "Não feito"
+                    val updatedRecipe = recipe.copy(tags = editableTags, status = currentStatus)
                     coroutineScope.launch {
-                        viewModel.salvarReceitaNoNotion(receitaAtualizada)
+                        viewModel.saveRecipeToNotion(updatedRecipe)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp)
                     .height(56.dp),
-                enabled = !isSaving // Desabilita o botão enquanto salva
+                enabled = !isSaving // Disables the button while saving
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
@@ -359,10 +359,10 @@ fun ExtractedRecipePreview(receita: Receita, viewModel: RecipeViewModel) {
 
 @Composable
 fun InitialScreen(
-    linkTexto: String,
+    linkText: String,
     onLinkChange: (String) -> Unit,
-    instrucaoExtra: String,
-    onInstrucaoChange: (String) -> Unit,
+    extraInstruction: String,
+    onInstructionChange: (String) -> Unit,
     savedUrisStrings: List<String>,
     onUrisChange: (List<String>) -> Unit,
     onMediaSelected: (List<Uri>, String?, String?) -> Unit,
@@ -382,9 +382,9 @@ fun InitialScreen(
         }
     }
 
-    val isMediaAttached = selectedUris.isNotEmpty() || linkTexto.isNotBlank()
+    val isMediaAttached = selectedUris.isNotEmpty() || linkText.isNotBlank()
 
-    // Usamos o LazyColumn para abraçar a usabilidade correta de listas/formulários fluídos
+    // Use a LazyColumn to get correct usability for fluid lists/forms
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -394,12 +394,12 @@ fun InitialScreen(
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
 
-        // 1. Cabeçalho Visual (Componentizado)
+        // 1. Visual header (componentized)
         item {
             HeaderSection(onLogoLongPress = onLogoLongPress)
         }
 
-        // 2. Seção de Anexo de Mídia (Componentizado)
+        // 2. Media attachment section (componentized)
         item {
             MediaSelectorSection(
                 hasAttachedUris = selectedUris.isNotEmpty(),
@@ -413,10 +413,10 @@ fun InitialScreen(
             )
         }
 
-        // 3. Campo de Link Opcional
+        // 3. Optional link field
         item {
             OutlinedTextField(
-                value = linkTexto,
+                value = linkText,
                 onValueChange = { onLinkChange(it) },
                 label = { Text(stringResource(R.string.link_tiktok_reels)) },
                 singleLine = true,
@@ -424,15 +424,15 @@ fun InitialScreen(
             )
         }
 
-        // 4. Campo de Entrada de Texto Dinâmico
+        // 4. Dynamic text input field
         item {
-            // Inteligência de UI: os textos mudam com base na presença de mídia
+            // UI smarts: the copy changes based on whether media is attached
             val dynamicLabel = if (isMediaAttached) stringResource(R.string.adaptacoes_receita) else stringResource(R.string.o_que_quer_comer)
             val dynamicPlaceholder = if (isMediaAttached) stringResource(R.string.exemplo_adaptacao) else stringResource(R.string.exemplo_receita_texto)
 
             OutlinedTextField(
-                value = instrucaoExtra,
-                onValueChange = { onInstrucaoChange(it) },
+                value = extraInstruction,
+                onValueChange = { onInstructionChange(it) },
                 label = { Text(dynamicLabel) },
                 placeholder = { Text(dynamicPlaceholder) },
                 modifier = Modifier.fillMaxWidth(),
@@ -441,23 +441,23 @@ fun InitialScreen(
             )
         }
 
-        // 5. Botão de Envio Unificado (Submit)
+        // 5. Unified submit button
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = {
                     if (!isSubmitting) {
-                        isSubmitting = true // Trava o botão na hora
+                        isSubmitting = true // Locks the button immediately
                         if (isMediaAttached) {
-                            onMediaSelected(selectedUris, linkTexto, instrucaoExtra)
-                        } else if (instrucaoExtra.isNotBlank()) {
-                            onTextOnlySubmit(instrucaoExtra)
+                            onMediaSelected(selectedUris, linkText, extraInstruction)
+                        } else if (extraInstruction.isNotBlank()) {
+                            onTextOnlySubmit(extraInstruction)
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                // O botão apaga se não tiver texto OU se já estiver processando
-                enabled = !isSubmitting && (isMediaAttached || instrucaoExtra.isNotBlank())
+                // The button is disabled if there's no text OR it's already processing
+                enabled = !isSubmitting && (isMediaAttached || extraInstruction.isNotBlank())
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
@@ -471,7 +471,7 @@ fun InitialScreen(
             }
         }
 
-        // 6. Botão de Navegação para o Caderno
+        // 6. Navigation button to the notebook
         item {
             OutlinedButton(
                 onClick = onNavigateToList,
@@ -489,10 +489,10 @@ fun InitialScreen(
 fun InitialScreenPreview() {
     MaterialTheme {
         InitialScreen(
-            linkTexto = "",
+            linkText = "",
             onLinkChange = {},
-            instrucaoExtra = "",
-            onInstrucaoChange = {},
+            extraInstruction = "",
+            onInstructionChange = {},
             savedUrisStrings = emptyList(),
             onUrisChange = {},
             onMediaSelected = { _, _, _ -> },

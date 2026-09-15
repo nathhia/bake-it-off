@@ -31,7 +31,7 @@ fun ErrorScreen(message: String, onDismiss: () -> Unit) {
         Text(
             text = stringResource(R.string.erro_titulo),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.error // Usa a cor de erro padrão do Material 3
+            color = MaterialTheme.colorScheme.error // Uses Material 3's default error color
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = message, textAlign = TextAlign.Center)

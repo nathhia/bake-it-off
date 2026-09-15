@@ -32,16 +32,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bakeitoff.R
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Recipe
 import com.bakeitoff.ui.theme.CardBackground
 import com.bakeitoff.ui.theme.LightPink
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RecipeCard(
-    receita: Receita,
+    recipe: Recipe,
     onClick: () -> Unit,
-    onTagClick: (String) -> Unit, // Callback genérico
+    onTagClick: (String) -> Unit, // Generic callback
     selectedTags: Set<String>
 ) {
     var tagsExpanded by remember { mutableStateOf(false) }
@@ -59,31 +59,31 @@ fun RecipeCard(
             Column(
                 modifier = Modifier.padding(16.dp).padding(end = 32.dp)
             ) {
-                // Título
+                // Title
                 Text(
-                    text = receita.titulo,
+                    text = recipe.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Tempo de Preparo
+                // Prep time
                 Text(
-                    text = "⏱️ ${receita.tempoPreparo}",
+                    text = "⏱️ ${recipe.prepTime}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Tags (Exibindo até 3 tags para não poluir o card)
+                // Tags (showing up to 3 tags to keep the card uncluttered)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 ) {
-                    val tagsToShow = if (tagsExpanded) receita.tags else receita.tags.take(3)
+                    val tagsToShow = if (tagsExpanded) recipe.tags else recipe.tags.take(3)
 
                     tagsToShow.forEach { tag ->
                         val isSelected = selectedTags.contains(tag)
@@ -104,12 +104,12 @@ fun RecipeCard(
                         )
                     }
 
-                    // Chip do "+X"
-                    if (receita.tags.size > 3) {
+                    // "+X" chip
+                    if (recipe.tags.size > 3) {
                         if (!tagsExpanded) {
                             AssistChip(
-                                onClick = { tagsExpanded = true }, // Ação para expandir
-                                label = { Text(stringResource(R.string.mais_tags, receita.tags.size - 3)) },
+                                onClick = { tagsExpanded = true }, // Action to expand
+                                label = { Text(stringResource(R.string.mais_tags, recipe.tags.size - 3)) },
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = Color(0xFFF8F0F0)
                                 ),
@@ -117,7 +117,7 @@ fun RecipeCard(
                             )
                         } else {
                             AssistChip(
-                                onClick = { tagsExpanded = false }, // Ação para recolher
+                                onClick = { tagsExpanded = false }, // Action to collapse
                                 label = { Text(stringResource(R.string.menos)) },
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = Color(0xFFF8F0F0)
@@ -128,13 +128,13 @@ fun RecipeCard(
                     }
                 }
             }
-            if (receita.favorito) {
+            if (recipe.favorite) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = stringResource(R.string.favorito_desc),
-                    tint = Color(0xFFE91E63), // Um rosa mais vivo para destacar
+                    tint = Color(0xFFE91E63), // A brighter pink to stand out
                     modifier = Modifier
-                        .align(Alignment.TopEnd) // O "pulo do gato" para alinhar
+                        .align(Alignment.TopEnd) // The trick to align it
                         .padding(16.dp)
                 )
             }

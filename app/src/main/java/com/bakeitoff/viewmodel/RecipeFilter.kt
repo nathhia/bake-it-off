@@ -1,53 +1,53 @@
 package com.bakeitoff.viewmodel
 
-import com.bakeitoff.data.model.Receita
+import com.bakeitoff.data.model.Recipe
 import java.text.Normalizer
 
 /**
- * Cruza a busca por texto com os filtros de tags, favorito e status.
- * Extraído do RecipeViewModel pra poder ser testado sem precisar instanciar
- * o ViewModel inteiro (que depende de Context/rede pelas outras classes).
+ * Combines the text search with the tag, favorite and status filters.
+ * Extracted from RecipeViewModel so it can be tested without instantiating
+ * the whole ViewModel (which depends on Context/network via other classes).
  */
 object RecipeFilter {
 
     fun apply(
-        receitas: List<Receita>,
+        recipes: List<Recipe>,
         query: String,
         selectedTags: Set<String>,
         favoriteOnly: Boolean,
         status: String?
-    ): List<Receita> {
-        val queryLimpa = normalizarParaBusca(query).lowercase()
-        val termosBuscados = if (queryLimpa.isBlank()) emptyList() else queryLimpa.split(" ")
+    ): List<Recipe> {
+        val cleanQuery = normalizeForSearch(query).lowercase()
+        val searchTerms = if (cleanQuery.isBlank()) emptyList() else cleanQuery.split(" ")
 
-        return receitas.filter { receita ->
-            val matchBusca = if (termosBuscados.isEmpty()) {
+        return recipes.filter { recipe ->
+            val matchesSearch = if (searchTerms.isEmpty()) {
                 true
             } else {
-                val tituloPronto = normalizarParaBusca(receita.titulo).lowercase()
-                val tagsProntas = receita.tags.map { normalizarParaBusca(it).lowercase() }
+                val normalizedTitle = normalizeForSearch(recipe.title).lowercase()
+                val normalizedTags = recipe.tags.map { normalizeForSearch(it).lowercase() }
 
-                termosBuscados.all { termo ->
-                    tituloPronto.contains(termo) || tagsProntas.any { tagPronta -> tagPronta.contains(termo) }
+                searchTerms.all { term ->
+                    normalizedTitle.contains(term) || normalizedTags.any { normalizedTag -> normalizedTag.contains(term) }
                 }
             }
 
-            val matchTags = selectedTags.all { tag -> receita.tags.contains(tag) }
-            val matchFav = !favoriteOnly || receita.favorito
-            val matchStatus = status == null || receita.status == status
+            val matchesTags = selectedTags.all { tag -> recipe.tags.contains(tag) }
+            val matchesFavorite = !favoriteOnly || recipe.favorite
+            val matchesStatus = status == null || recipe.status == status
 
-            matchBusca && matchTags && matchFav && matchStatus
+            matchesSearch && matchesTags && matchesFavorite && matchesStatus
         }
     }
 
     /**
-     * Remove acentos, troca hífen por espaço e colapsa espaços duplos —
-     * pra "não-fritar" e "nao fritar" darem match na mesma busca.
+     * Strips accents, turns hyphens into spaces and collapses double spaces —
+     * so "não-fritar" and "nao fritar" match the same search.
      */
-    fun normalizarParaBusca(texto: String): String {
-        val normalizada = Normalizer.normalize(texto, Normalizer.Form.NFD)
-        val semAcento = normalizada.replace("\\p{Mn}+".toRegex(), "")
-        val semHifen = semAcento.replace("-", " ")
-        return semHifen.replace("\\s+".toRegex(), " ").trim()
+    fun normalizeForSearch(text: String): String {
+        val normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+        val withoutAccents = normalized.replace("\\p{Mn}+".toRegex(), "")
+        val withoutHyphens = withoutAccents.replace("-", " ")
+        return withoutHyphens.replace("\\s+".toRegex(), " ").trim()
     }
 }

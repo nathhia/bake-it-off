@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TagFilterBar(
-    todasAsTags: List<String>,
+    allTags: List<String>,
     selectedTags: Set<String>,
     onTagSelect: (String) -> Unit,
 ) {
@@ -24,9 +24,9 @@ fun TagFilterBar(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(todasAsTags) { tag ->
+        items(allTags) { tag ->
             FilterChip(
-                selected = selectedTags.contains(tag), // Verifica no Set
+                selected = selectedTags.contains(tag), // Checks the Set
                 onClick = { onTagSelect(tag) },
                 label = { Text(tag) }
             )

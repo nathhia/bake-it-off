@@ -2,7 +2,7 @@ package com.bakeitoff.data.notion
 
 import com.google.gson.annotations.SerializedName
 
-// O Payload principal que enviaremos para a API
+// Main payload we send to the API
 data class NotionCreatePageRequest(
     val parent: NotionDatabaseParent,
     val properties: RecipeProperties,
@@ -13,20 +13,20 @@ data class NotionDatabaseParent(
     @SerializedName("database_id") val databaseId: String
 )
 
-// Aqui mapeamos exatamente as colunas do seu Notion
+// Maps exactly to the columns in the user's Notion database
 data class RecipeProperties(
-    @SerializedName("Nome") val nome: NotionTitle,
-    @SerializedName("Tempo de Preparo") val tempoPreparo: NotionRichText, // Nova propriedade
-    @SerializedName("Ingredientes") val ingredientes: NotionRichText,
-    @SerializedName("Preparo") val preparo: NotionRichText,
+    @SerializedName("Nome") val name: NotionTitle,
+    @SerializedName("Tempo de Preparo") val prepTime: NotionRichText,
+    @SerializedName("Ingredientes") val ingredients: NotionRichText,
+    @SerializedName("Preparo") val instructions: NotionRichText,
     @SerializedName("Tags") val tags: NotionMultiSelect,
-    @SerializedName("Favorito") val favorito: NotionCheckbox,
+    @SerializedName("Favorito") val favorite: NotionCheckbox,
     @SerializedName("Status") val status: NotionStatus,
-    @SerializedName("Dicas") val dicas: NotionRichText,
+    @SerializedName("Dicas") val tips: NotionRichText,
     @SerializedName("Link") val link: NotionUrl? = null
 )
 
-// Estruturas verbosas exigidas pela API do Notion
+// Verbose structures required by the Notion API
 data class NotionTitle(val title: List<TextObject>)
 data class NotionRichText(@SerializedName("rich_text") val richText: List<TextObject>)
 data class NotionMultiSelect(@SerializedName("multi_select") val multiSelect: List<SelectOption>)

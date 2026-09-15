@@ -24,7 +24,7 @@ import com.bakeitoff.R
 @Composable
 fun HeaderSection(onLogoLongPress: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Reduzimos o círculo de 120.dp para 80.dp
+        // Shrunk the circle from 120.dp to 80.dp
         Surface(
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer,
@@ -41,7 +41,7 @@ fun HeaderSection(onLogoLongPress: () -> Unit) {
             }
         }
 
-        // Reduzimos o espaço de 24.dp para 12.dp
+        // Shrunk the spacing from 24.dp to 12.dp
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
@@ -56,7 +56,7 @@ fun HeaderSection(onLogoLongPress: () -> Unit) {
 
         Text(
             text = stringResource(R.string.descricao_inicial),
-            style = MaterialTheme.typography.bodyMedium, // Mudamos de bodyLarge para bodyMedium para ficar mais delicado
+            style = MaterialTheme.typography.bodyMedium, // Changed from bodyLarge to bodyMedium to look more delicate
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )

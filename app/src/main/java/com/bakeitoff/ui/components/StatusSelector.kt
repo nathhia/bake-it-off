@@ -28,12 +28,12 @@ import com.bakeitoff.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatusSelector(statusAtual: String, onStatusChange: (String) -> Unit) {
+fun StatusSelector(currentStatus: String, onStatusChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    val opcoes = listOf("Feito", "Não feito", "Quero fazer")
+    val options = listOf("Feito", "Não feito", "Quero fazer")
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Usamos um botão como gatilho. Ele é mais fino que o TextField.
+        // Use a button as the trigger. It's slimmer than a TextField.
         OutlinedButton(
             onClick = { expanded = true },
             modifier = Modifier.fillMaxWidth(),
@@ -45,7 +45,7 @@ fun StatusSelector(statusAtual: String, onStatusChange: (String) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = statusAtual, style = MaterialTheme.typography.bodyMedium)
+                Text(text = currentStatus, style = MaterialTheme.typography.bodyMedium)
                 Icon(Icons.Default.ArrowDropDown, contentDescription = stringResource(R.string.mudar_status))
             }
         }
@@ -53,13 +53,13 @@ fun StatusSelector(statusAtual: String, onStatusChange: (String) -> Unit) {
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.fillMaxWidth(0.9f) // Menu alinhado com o botão
+            modifier = Modifier.fillMaxWidth(0.9f) // Menu aligned with the button
         ) {
-            opcoes.forEach { opcao ->
+            options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(opcao) },
+                    text = { Text(option) },
                     onClick = {
-                        onStatusChange(opcao)
+                        onStatusChange(option)
                         expanded = false
                     }
                 )

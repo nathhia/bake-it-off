@@ -1,8 +1,8 @@
 package com.bakeitoff.ui.screens
 
-import com.bakeitoff.data.model.DicasComentario
-import com.bakeitoff.data.model.Receita
-import com.bakeitoff.data.model.Ingrediente
+import com.bakeitoff.data.model.RecipeTip
+import com.bakeitoff.data.model.Recipe
+import com.bakeitoff.data.model.Ingredient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -52,22 +52,22 @@ import com.bakeitoff.R
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecipeEditDetailScreen(
-    receitaOriginal: Receita,
-    onSave: (Receita) -> Unit,
+    originalRecipe: Recipe,
+    onSave: (Recipe) -> Unit,
     onCancel: () -> Unit
 ) {
-    var titulo by remember { mutableStateOf(receitaOriginal.titulo) }
+    var title by remember { mutableStateOf(originalRecipe.title) }
 
-    val tagsEditaveis = remember { mutableStateListOf<String>().apply { addAll(receitaOriginal.tags) } }
-    var novaTag by remember { mutableStateOf("") }
+    val editableTags = remember { mutableStateListOf<String>().apply { addAll(originalRecipe.tags) } }
+    var newTag by remember { mutableStateOf("") }
 
 
-    // 1. Estados para os Ingredientes, Passos e Dicas
-    val ingredientesEditaveis = remember { mutableStateListOf<Ingrediente>().apply { addAll(receitaOriginal.ingredientes) } }
-    val passosEditaveis = remember { mutableStateListOf<String>().apply { addAll(receitaOriginal.passos) } }
+    // 1. State for ingredients, steps and tips
+    val editableIngredients = remember { mutableStateListOf<Ingredient>().apply { addAll(originalRecipe.ingredients) } }
+    val editableSteps = remember { mutableStateListOf<String>().apply { addAll(originalRecipe.steps) } }
 
-    // NOVO: Estado para as dicas
-    val dicasEditaveis = remember { mutableStateListOf<DicasComentario>().apply { addAll(receitaOriginal.dicas_video) } }
+    // State for the tips
+    val editableTips = remember { mutableStateListOf<RecipeTip>().apply { addAll(originalRecipe.videoTips) } }
 
     Scaffold(
         topBar = {
@@ -80,15 +80,15 @@ fun RecipeEditDetailScreen(
                 },
                 actions = {
                     TextButton(onClick = {
-                        // 2. Salva todas as edições no objeto final
-                        val receitaAtualizada = receitaOriginal.copy(
-                            titulo = titulo,
-                            tags = tagsEditaveis.toList(),
-                            ingredientes = ingredientesEditaveis.toList(),
-                            passos = passosEditaveis.toList(),
-                            dicas_video = dicasEditaveis.toList()
+                        // 2. Save every edit onto the final object
+                        val updatedRecipe = originalRecipe.copy(
+                            title = title,
+                            tags = editableTags.toList(),
+                            ingredients = editableIngredients.toList(),
+                            steps = editableSteps.toList(),
+                            videoTips = editableTips.toList()
                         )
-                        onSave(receitaAtualizada)
+                        onSave(updatedRecipe)
                     }) {
                         Text(stringResource(R.string.salvar), fontWeight = FontWeight.Bold)
                     }
@@ -103,11 +103,11 @@ fun RecipeEditDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // --- TÍTULO ---
+            // --- TITLE ---
             item {
                 OutlinedTextField(
-                    value = titulo,
-                    onValueChange = { titulo = it },
+                    value = title,
+                    onValueChange = { title = it },
                     label = { Text(stringResource(R.string.titulo_da_receita)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
@@ -122,14 +122,14 @@ fun RecipeEditDetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    tagsEditaveis.forEach { tag ->
+                    editableTags.forEach { tag ->
                         InputChip(
                             selected = true,
                             onClick = { },
                             label = { Text(tag) },
                             trailingIcon = {
                                 IconButton(
-                                    onClick = { tagsEditaveis.remove(tag) },
+                                    onClick = { editableTags.remove(tag) },
                                     modifier = Modifier.size(16.dp)
                                 ) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.remover_tag)) }
                             }
@@ -137,17 +137,17 @@ fun RecipeEditDetailScreen(
                     }
                 }
                 OutlinedTextField(
-                    value = novaTag,
-                    onValueChange = { novaTag = it },
+                    value = newTag,
+                    onValueChange = { newTag = it },
                     label = { Text(stringResource(R.string.adicionar_nova_tag)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(onClick = {
-                            val tagLimpa = novaTag.trim()
-                            if (tagLimpa.isNotEmpty() && !tagsEditaveis.contains(tagLimpa)) {
-                                tagsEditaveis.add(tagLimpa)
-                                novaTag = ""
+                            val cleanTag = newTag.trim()
+                            if (cleanTag.isNotEmpty() && !editableTags.contains(cleanTag)) {
+                                editableTags.add(cleanTag)
+                                newTag = ""
                             }
                         }) { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.adicionar_tag)) }
                     }
@@ -156,22 +156,22 @@ fun RecipeEditDetailScreen(
 
             item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
 
-            // --- INGREDIENTES ---
+            // --- INGREDIENTS ---
             item {
                 Text(stringResource(R.string.ingredientes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
-            // 1. Agrupamos os ingredientes pela seção
-            val ingredientesAgrupados = ingredientesEditaveis.groupBy { it.secao ?: "" }
+            // 1. Group the ingredients by section
+            val groupedIngredients = editableIngredients.groupBy { it.section ?: "" }
 
-            // 2. Iteramos sobre cada grupo para desenhar na tela
-            ingredientesAgrupados.forEach { (secao, listaDaSecao) ->
+            // 2. Iterate over each group to draw it on screen
+            groupedIngredients.forEach { (section, sectionList) ->
 
-                // Título da Seção (se não for a seção geral/vazia)
-                if (secao.isNotEmpty()) {
+                // Section title (unless it's the general/empty section)
+                if (section.isNotEmpty()) {
                     item {
                         Text(
-                            text = secao,
+                            text = section,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -180,10 +180,10 @@ fun RecipeEditDetailScreen(
                     }
                 }
 
-                // Caixinhas dos ingredientes desta seção
-                items(listaDaSecao) { ingredienteAtual ->
-                    // Buscamos o índice em tempo real para evitar crashes se você deletar algo
-                    val index = ingredientesEditaveis.indexOfFirst { it === ingredienteAtual }
+                // Cards for the ingredients in this section
+                items(sectionList) { currentIngredient ->
+                    // Look up the index live to avoid crashes if something gets deleted
+                    val index = editableIngredients.indexOfFirst { it === currentIngredient }
 
                     if (index != -1) {
                         Card(
@@ -195,15 +195,15 @@ fun RecipeEditDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedTextField(
-                                    value = ingredientesEditaveis[index].item,
-                                    onValueChange = { novoValor ->
-                                        ingredientesEditaveis[index] = ingredientesEditaveis[index].copy(item = novoValor)
+                                    value = editableIngredients[index].item,
+                                    onValueChange = { newValue ->
+                                        editableIngredients[index] = editableIngredients[index].copy(item = newValue)
                                     },
                                     label = { Text(stringResource(R.string.ingrediente_label)) },
                                     modifier = Modifier.weight(1f)
                                 )
 
-                                IconButton(onClick = { ingredientesEditaveis.removeAt(index) }) {
+                                IconButton(onClick = { editableIngredients.removeAt(index) }) {
                                     Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_desc), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -211,36 +211,36 @@ fun RecipeEditDetailScreen(
                     }
                 }
 
-                // Botão para adicionar ingrediente EXCLUSIVO para esta seção
+                // Button to add an ingredient EXCLUSIVE to this section
                 item {
                     TextButton(
                         onClick = {
-                            // Cria um ingrediente vazio já atrelado a esta seção
-                            ingredientesEditaveis.add(Ingrediente(quantidade = "", unidade = "", item = "", secao = secao))
+                            // Creates an empty ingredient already tied to this section
+                            editableIngredients.add(Ingredient(quantity = "", unit = "", item = "", section = section))
                         },
                         modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
-                        Text(" " + (if (secao.isEmpty()) stringResource(R.string.adicionar_ingrediente) else stringResource(R.string.adicionar_ingrediente_em, secao)))
+                        Text(" " + (if (section.isEmpty()) stringResource(R.string.adicionar_ingrediente) else stringResource(R.string.adicionar_ingrediente_em, section)))
                     }
                 }
             }
 
-            // 3. E se eu quiser criar uma seção nova do zero? (ex: "Calda")
+            // 3. What if I want to create a brand new section? (e.g. "Calda")
             item {
-                var novaSecao by remember { mutableStateOf("") }
+                var newSection by remember { mutableStateOf("") }
 
                 OutlinedTextField(
-                    value = novaSecao,
-                    onValueChange = { novaSecao = it },
+                    value = newSection,
+                    onValueChange = { newSection = it },
                     label = { Text(stringResource(R.string.criar_nova_secao)) },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                     trailingIcon = {
                         IconButton(onClick = {
-                            if (novaSecao.isNotBlank()) {
-                                // Adiciona um item vazio para forçar o grupo a existir
-                                ingredientesEditaveis.add(Ingrediente(quantidade = "", unidade = "", item = "", secao = novaSecao.trim()))
-                                novaSecao = "" // Limpa o campo
+                            if (newSection.isNotBlank()) {
+                                // Adds an empty item to force the group to exist
+                                editableIngredients.add(Ingredient(quantity = "", unit = "", item = "", section = newSection.trim()))
+                                newSection = "" // Clears the field
                             }
                         }) {
                             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.criar_secao_desc))
@@ -250,28 +250,28 @@ fun RecipeEditDetailScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
             }
 
-            // --- MODO DE PREPARO ---
+            // --- INSTRUCTIONS ---
             item {
                 Text(stringResource(R.string.modo_de_preparo), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
-            itemsIndexed(passosEditaveis) { index, passo ->
+            itemsIndexed(editableSteps) { index, step ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedTextField(
-                        value = passo,
-                        onValueChange = { novoValor ->
-                            passosEditaveis[index] = novoValor
+                        value = step,
+                        onValueChange = { newValue ->
+                            editableSteps[index] = newValue
                         },
                         label = { Text(stringResource(R.string.passo_indexado, index + 1)) },
                         modifier = Modifier.weight(1f)
                     )
 
                     IconButton(
-                        onClick = { passosEditaveis.removeAt(index) },
+                        onClick = { editableSteps.removeAt(index) },
                         modifier = Modifier.padding(top = 8.dp)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_passo_desc), tint = MaterialTheme.colorScheme.error)
@@ -281,21 +281,21 @@ fun RecipeEditDetailScreen(
 
             item {
                 TextButton(onClick = {
-                    // Adiciona um passo vazio no final da lista
-                    passosEditaveis.add("")
+                    // Adds an empty step at the end of the list
+                    editableSteps.add("")
                 }) {
                     Icon(Icons.Default.Add, contentDescription = null)
                     Text(" " + stringResource(R.string.adicionar_passo))
                 }
             }
 
-            // --- DICAS E COMENTÁRIOS ---
+            // --- TIPS AND COMMENTS ---
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text(stringResource(R.string.dicas_e_comentarios), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
 
-            itemsIndexed(dicasEditaveis) { index, dica ->
+            itemsIndexed(editableTips) { index, tip ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -310,15 +310,15 @@ fun RecipeEditDetailScreen(
                         ) {
                             Text(stringResource(R.string.dica_indexada, index + 1), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
-                            IconButton(onClick = { dicasEditaveis.removeAt(index) }) {
+                            IconButton(onClick = { editableTips.removeAt(index) }) {
                                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.remover_dica_desc), tint = MaterialTheme.colorScheme.error)
                             }
                         }
 
                         OutlinedTextField(
-                            value = dica.texto,
-                            onValueChange = { novoTexto ->
-                                dicasEditaveis[index] = dica.copy(texto = novoTexto)
+                            value = tip.text,
+                            onValueChange = { newText ->
+                                editableTips[index] = tip.copy(text = newText)
                             },
                             label = { Text(stringResource(R.string.texto_da_dica)) },
                             modifier = Modifier.fillMaxWidth(),
@@ -327,25 +327,25 @@ fun RecipeEditDetailScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Seleção do tipo de Dica usando o campo "fonte"
+                        // Selects the tip type using the "source" field
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            val tipos = listOf("Vídeo", "IA", "Pessoal")
+                            val types = listOf("Vídeo", "IA", "Pessoal")
 
-                            tipos.forEach { tipo ->
+                            types.forEach { type ->
                                 InputChip(
-                                    // Marca como selecionado se a fonte for igual ao tipo.
-                                    // (Fallback: se no banco antigo estiver "Comunidade", mapeia para "Pessoal")
-                                    selected = (dica.fonte == tipo || (tipo == "Pessoal" && dica.fonte == "Comunidade")),
+                                    // Marks it selected if the source matches the type.
+                                    // (Fallback: if an old database has "Comunidade", map it to "Pessoal")
+                                    selected = (tip.source == type || (type == "Pessoal" && tip.source == "Comunidade")),
                                     onClick = {
-                                        dicasEditaveis[index] = dica.copy(
-                                            fonte = tipo,
-                                            enriquecida = (tipo == "IA") // Atualiza o booleano automaticamente!
+                                        editableTips[index] = tip.copy(
+                                            source = type,
+                                            enriched = (type == "IA") // Updates the boolean automatically!
                                         )
                                     },
-                                    label = { Text(tipo) }
+                                    label = { Text(type) }
                                 )
                             }
                         }
@@ -355,12 +355,12 @@ fun RecipeEditDetailScreen(
 
             item {
                 TextButton(onClick = {
-                    // Adiciona uma nova dica vazia padronizada como "Pessoal"
-                    dicasEditaveis.add(
-                        DicasComentario(
-                            texto = "",
-                            fonte = "Pessoal",
-                            enriquecida = false
+                    // Adds a new empty tip, defaulted to "Pessoal"
+                    editableTips.add(
+                        RecipeTip(
+                            text = "",
+                            source = "Pessoal",
+                            enriched = false
                         )
                     )
                 }) {
@@ -376,27 +376,27 @@ fun RecipeEditDetailScreen(
 @Preview(showBackground = true)
 @Composable
 fun RecipeEditDetailScreenPreview() {
-    val mockReceita = Receita(
+    val mockRecipe = Recipe(
         id = "preview-id",
-        titulo = "Pizza Babalou",
-        tempoPreparo = "30 minutos",
+        title = "Pizza Babalou",
+        prepTime = "30 minutos",
         tags = listOf("Forno", "Jantar", "Vegetariano"),
-        ingredientes = listOf(
-            Ingrediente(quantidade = "1", unidade = "disco", item = "massa de pizza", secao = "Massa"),
-            Ingrediente(quantidade = "150", unidade = "g", item = "Mascarpone", secao = "Cobertura")
+        ingredients = listOf(
+            Ingredient(quantity = "1", unit = "disco", item = "massa de pizza", section = "Massa"),
+            Ingredient(quantity = "150", unit = "g", item = "Mascarpone", section = "Cobertura")
         ),
-        passos = listOf(
+        steps = listOf(
             "Abra a massa numa forma untada.",
             "Espalhe o mascarpone e finalize com o queijo ralado."
         ),
-        dicas_video = listOf(
-            DicasComentario(texto = "Fica melhor com forno bem quente.", fonte = "Pessoal", enriquecida = false)
+        videoTips = listOf(
+            RecipeTip(text = "Fica melhor com forno bem quente.", source = "Pessoal", enriched = false)
         )
     )
 
     MaterialTheme {
         RecipeEditDetailScreen(
-            receitaOriginal = mockReceita,
+            originalRecipe = mockRecipe,
             onSave = {},
             onCancel = {}
         )

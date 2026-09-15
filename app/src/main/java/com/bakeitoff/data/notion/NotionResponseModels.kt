@@ -6,40 +6,40 @@ data class QueryDatabaseRequest(
     val start_cursor: String? = null
 )
 
-// 2. ATUALIZE ESTA CLASSE: A resposta principal da busca (agora com paginação!)
+// Main search response (paginated)
 data class NotionQueryResponse(
     val results: List<NotionPageResponse>,
     val next_cursor: String? = null,
     val has_more: Boolean = false
 )
 
-// Cada página (receita) dentro da lista
+// Each page (recipe) in the list
 data class NotionPageResponse(
     val id: String,
     val properties: NotionPageProperties
 )
 
-// Resposta da criação de página (POST /v1/pages) — só precisamos do id novo,
-// pra poder inserir a receita na lista local sem depender de uma nova busca.
+// Response from creating a page (POST /v1/pages) — we only need the new id,
+// so we can insert the recipe into the local list without a new fetch.
 data class CreatedPageResponse(
     val id: String
 )
 
-// As colunas da tabela (use os nomes exatos das suas colunas do Notion)
+// The table columns (use the exact names of your Notion columns)
 data class NotionPageProperties(
-    @SerializedName("Nome") val nome: NotionPropertyTitle?,
-    @SerializedName("Tempo de Preparo") val tempoPreparo: NotionPropertyRichText?,
+    @SerializedName("Nome") val name: NotionPropertyTitle?,
+    @SerializedName("Tempo de Preparo") val prepTime: NotionPropertyRichText?,
     @SerializedName("Tags") val tags: NotionPropertyMultiSelect?,
 
-    @SerializedName("Ingredientes") val ingredientes: NotionPropertyRichText?,
-    @SerializedName("Preparo") val passos: NotionPropertyRichText?,
-    @SerializedName("Favorito") val favorito: NotionPropertyCheckbox? = null,
+    @SerializedName("Ingredientes") val ingredients: NotionPropertyRichText?,
+    @SerializedName("Preparo") val instructions: NotionPropertyRichText?,
+    @SerializedName("Favorito") val favorite: NotionPropertyCheckbox? = null,
     @SerializedName("Status") val status: StatusProperty? = null,
     @SerializedName("Link") val link: UrlProperty? = null,
-    @SerializedName("Dicas") val dicas: NotionPropertyRichText?,
+    @SerializedName("Dicas") val tips: NotionPropertyRichText?,
 )
 
-// Estruturas internas para ler o texto que vem do Notion
+// Internal structures for reading the text that comes back from Notion
 data class NotionPropertyTitle(val title: List<TextObject>)
 data class NotionPropertyRichText(val rich_text: List<TextObject>)
 data class NotionPropertyMultiSelect(val multi_select: List<SelectOption>)
@@ -55,7 +55,7 @@ data class NotionPropertyCheckbox(
 data class UpdatePageRequest(val properties: UpdateProperties)
 
 data class UpdateProperties(
-    @SerializedName("Favorito") val favorito: CheckboxProperty? = null,
+    @SerializedName("Favorito") val favorite: CheckboxProperty? = null,
     @SerializedName("Status") val status: StatusProperty? = null
 )
 
